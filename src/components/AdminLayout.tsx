@@ -1,6 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/hooks/useBusiness";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
@@ -12,6 +14,7 @@ import {
   Settings, LogOut, Scissors, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 const allNavItems = [
   { title: "Prehľad", url: "/admin", icon: LayoutDashboard, roles: ["owner", "admin", "employee"] },
@@ -118,6 +121,20 @@ export function AdminSidebar() {
 }
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { needsOnboarding, loading: onboardingLoading, markComplete } = useOnboarding();
+
+  if (onboardingLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingWizard onComplete={markComplete} />;
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
