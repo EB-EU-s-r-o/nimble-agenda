@@ -418,8 +418,8 @@ export default function BookingPage() {
         {/* Step: Done */}
         {step === "done" && bookingResult && (
           <div className="text-center space-y-6 py-8">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
-              <Check className="w-8 h-8 text-green-600" />
+            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto">
+              <Check className="w-8 h-8 text-primary" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">Rezervácia potvrdená!</h2>
