@@ -18,7 +18,8 @@ import { Loader2 } from "lucide-react";
 
 const allNavItems = [
   { title: "Prehľad", url: "/admin", icon: LayoutDashboard, roles: ["owner", "admin", "employee"] },
-  { title: "Kalendár", url: "/admin/calendar", icon: Calendar, roles: ["owner", "admin", "employee"] },
+  { title: "Kalendár", url: "/admin/calendar", icon: Calendar, roles: ["owner", "admin"] },
+  { title: "Môj rozvrh", url: "/admin/my", icon: Calendar, roles: ["employee"] },
   { title: "Rezervácie", url: "/admin/appointments", icon: BookOpen, roles: ["owner", "admin", "employee"] },
   { title: "Zamestnanci", url: "/admin/employees", icon: Users, roles: ["owner", "admin"] },
   { title: "Služby", url: "/admin/services", icon: Briefcase, roles: ["owner", "admin"] },
