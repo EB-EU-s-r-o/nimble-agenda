@@ -41,6 +41,7 @@ const DEFAULT_HOURS: OpeningHours = {
 };
 
 interface ServiceEntry {
+  id?: string; // existing DB id for upsert
   name_sk: string;
   duration_minutes: number;
   buffer_minutes: number;
@@ -48,6 +49,7 @@ interface ServiceEntry {
 }
 
 interface EmployeeEntry {
+  id?: string; // existing DB id for upsert
   display_name: string;
   email: string;
 }
@@ -131,6 +133,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         .eq("is_active", true);
       if (svcs && svcs.length > 0) {
         setServicesList(svcs.map((s) => ({
+          id: s.id,
           name_sk: s.name_sk,
           duration_minutes: s.duration_minutes,
           buffer_minutes: s.buffer_minutes,
@@ -146,6 +149,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         .eq("is_active", true);
       if (emps && emps.length > 0) {
         setEmployeesList(emps.map((e) => ({
+          id: e.id,
           display_name: e.display_name,
           email: e.email ?? "",
         })));
@@ -197,33 +201,67 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         const validServices = servicesList.filter((s) => s.name_sk.trim());
         if (validServices.length === 0) { toast.error("Pridajte aspoň jednu službu"); setSaving(false); return; }
 
-        // Delete existing and re-insert
-        await supabase.from("services").delete().eq("business_id", businessId);
-        const inserts = validServices.map((s) => ({
-          business_id: businessId,
-          name_sk: s.name_sk.trim(),
-          duration_minutes: Math.max(5, s.duration_minutes),
-          buffer_minutes: Math.max(0, s.buffer_minutes),
-          price: s.price ? parseFloat(s.price) : null,
-        }));
-        await supabase.from("services").insert(inserts);
+        // Get existing services for this business
+        const { data: existingServices } = await supabase
+          .from("services").select("id, name_sk").eq("business_id", businessId);
+        const existingMap = new Map((existingServices ?? []).map((s) => [s.id, s]));
+
+        // IDs that remain in the wizard form
+        const keepIds = new Set(validServices.filter((s) => s.id).map((s) => s.id!));
+
+        // Deactivate removed services (don't delete — FK safety)
+        const toDeactivate = (existingServices ?? []).filter((s) => !keepIds.has(s.id)).map((s) => s.id);
+        if (toDeactivate.length > 0) {
+          await supabase.from("services").update({ is_active: false }).in("id", toDeactivate);
+        }
+
+        // Upsert remaining + new services
+        for (const svc of validServices) {
+          const row = {
+            business_id: businessId,
+            name_sk: svc.name_sk.trim(),
+            duration_minutes: Math.max(5, svc.duration_minutes),
+            buffer_minutes: Math.max(0, svc.buffer_minutes),
+            price: svc.price ? parseFloat(svc.price) : null,
+            is_active: true,
+          };
+          if (svc.id) {
+            await supabase.from("services").update(row).eq("id", svc.id);
+          } else {
+            await supabase.from("services").insert(row);
+          }
+        }
         await saveStep(3, validServices);
       } else if (step === 4) {
         const validEmps = employeesList.filter((e) => e.display_name.trim());
         if (validEmps.length === 0) { toast.error("Pridajte aspoň jedného zamestnanca"); setSaving(false); return; }
 
-        // Don't delete existing employees (they might have appointments) — just add new ones
-        const { data: existing } = await supabase.from("employees").select("display_name").eq("business_id", businessId);
-        const existingNames = new Set((existing ?? []).map((e) => e.display_name));
-        const newEmps = validEmps.filter((e) => !existingNames.has(e.display_name.trim()));
-        if (newEmps.length > 0) {
-          await supabase.from("employees").insert(
-            newEmps.map((e) => ({
-              business_id: businessId,
-              display_name: e.display_name.trim(),
-              email: e.email.trim() || null,
-            }))
-          );
+        // Get existing employees
+        const { data: existingEmps } = await supabase
+          .from("employees").select("id, display_name").eq("business_id", businessId);
+
+        // IDs that remain in the wizard form
+        const keepIds = new Set(validEmps.filter((e) => e.id).map((e) => e.id!));
+
+        // Deactivate removed employees (don't delete — FK safety)
+        const toDeactivate = (existingEmps ?? []).filter((e) => !keepIds.has(e.id)).map((e) => e.id);
+        if (toDeactivate.length > 0) {
+          await supabase.from("employees").update({ is_active: false }).in("id", toDeactivate);
+        }
+
+        // Upsert remaining + new employees
+        for (const emp of validEmps) {
+          const row = {
+            business_id: businessId,
+            display_name: emp.display_name.trim(),
+            email: emp.email.trim() || null,
+            is_active: true,
+          };
+          if (emp.id) {
+            await supabase.from("employees").update(row).eq("id", emp.id);
+          } else {
+            await supabase.from("employees").insert(row);
+          }
         }
         await saveStep(4, validEmps);
       } else if (step === 5) {
@@ -231,6 +269,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
           lead_time_minutes: Math.max(0, rules.lead_time_minutes),
           max_days_ahead: Math.max(1, rules.max_days_ahead),
           cancellation_hours: Math.max(0, rules.cancellation_hours),
+          onboarding_completed: true,
         }).eq("id", businessId);
         await saveStep(5, rules);
         toast.success("Nastavenie dokončené! 🎉");

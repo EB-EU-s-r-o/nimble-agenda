@@ -144,6 +144,7 @@ export type Database = {
           logo_url: string | null
           max_days_ahead: number
           name: string
+          onboarding_completed: boolean
           opening_hours: Json
           phone: string | null
           slug: string | null
@@ -160,6 +161,7 @@ export type Database = {
           logo_url?: string | null
           max_days_ahead?: number
           name: string
+          onboarding_completed?: boolean
           opening_hours?: Json
           phone?: string | null
           slug?: string | null
@@ -176,6 +178,7 @@ export type Database = {
           logo_url?: string | null
           max_days_ahead?: number
           name?: string
+          onboarding_completed?: boolean
           opening_hours?: Json
           phone?: string | null
           slug?: string | null

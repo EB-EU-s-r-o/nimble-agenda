@@ -18,6 +18,7 @@ import EmployeesPage from "./pages/admin/EmployeesPage";
 import ServicesPage from "./pages/admin/ServicesPage";
 import CustomersPage from "./pages/admin/CustomersPage";
 import SettingsPage from "./pages/admin/SettingsPage";
+import MySchedulePage from "./pages/admin/MySchedulePage";
 
 const queryClient = new QueryClient();
 
@@ -89,7 +90,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
+            <Route
+              path="/admin/my"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout><MySchedulePage /></AdminLayout>
+                </ProtectedRoute>
+              }
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

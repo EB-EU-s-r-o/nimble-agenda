@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Hook that checks if onboarding is completed for the current business.
- * Onboarding is considered complete when all 5 steps have been saved.
+ * Primary check: businesses.onboarding_completed boolean flag.
+ * Fallback: onboarding_answers progress state.
  */
 export function useOnboarding() {
   const { businessId, isOwnerOrAdmin } = useBusiness();
@@ -22,21 +23,28 @@ export function useOnboarding() {
 
     const check = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("onboarding_answers")
-        .select("step")
-        .eq("business_id", businessId);
 
-      if (error) {
+      // Primary: check the deterministic flag on the business
+      const { data: biz, error: bizErr } = await supabase
+        .from("businesses")
+        .select("onboarding_completed")
+        .eq("id", businessId)
+        .maybeSingle();
+
+      if (bizErr || !biz) {
         setNeedsOnboarding(false);
         setLoading(false);
         return;
       }
 
-      const completedSteps = (data ?? []).map((d) => d.step);
-      // All 5 steps must be complete
-      const allDone = [1, 2, 3, 4, 5].every((s) => completedSteps.includes(s));
-      setNeedsOnboarding(!allDone);
+      if (biz.onboarding_completed) {
+        setNeedsOnboarding(false);
+        setLoading(false);
+        return;
+      }
+
+      // Not yet completed — show wizard
+      setNeedsOnboarding(true);
       setLoading(false);
     };
 
