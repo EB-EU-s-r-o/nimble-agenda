@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useBusiness } from "@/hooks/useBusiness";
+import { useBusiness, DEMO_BUSINESS_ID } from "@/hooks/useBusiness";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
@@ -15,7 +15,7 @@ export function useOnboarding() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !isOwnerOrAdmin) {
+    if (!user || !isOwnerOrAdmin || businessId === DEMO_BUSINESS_ID) {
       setNeedsOnboarding(false);
       setLoading(false);
       return;
