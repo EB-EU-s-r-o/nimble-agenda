@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,17 @@ const registerSchema = loginSchema.extend({
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
+  const [searchParams] = useSearchParams();
+  const urlMode = searchParams.get("mode");
+  const urlEmail = searchParams.get("email") ?? "";
+  const urlName = searchParams.get("name") ?? "";
+  const claimToken = searchParams.get("claim") ?? "";
+
+  const [mode, setMode] = useState<"login" | "register" | "forgot">(
+    urlMode === "register" ? "register" : "login"
+  );
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "", fullName: "" });
+  const [form, setForm] = useState({ email: urlEmail, password: "", fullName: urlName });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -56,13 +64,28 @@ export default function AuthPage() {
     }
     setErrors({});
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: { data: { full_name: form.fullName }, emailRedirectTo: window.location.origin + "/admin" },
     });
     setLoading(false);
     if (error) { toast.error("Registrácia zlyhala: " + error.message); return; }
+
+    // If we have a claim token, try to claim the booking
+    if (claimToken && signUpData?.session) {
+      try {
+        await supabase.functions.invoke("claim-booking", {
+          body: { claim_token: claimToken },
+        });
+        toast.success("Registrácia úspešná! Rezervácia bola prepojená s vaším účtom.");
+        navigate("/admin");
+        return;
+      } catch {
+        // Claim failed but registration succeeded
+      }
+    }
+
     toast.success("Registrácia úspešná! Skontrolujte email pre potvrdenie.");
     setMode("login");
   };

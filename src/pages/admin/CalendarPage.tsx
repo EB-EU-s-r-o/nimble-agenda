@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, dateFnsLocalizer, View, SlotInfo } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, addMinutes } from "date-fns";
+import { format, parse, startOfWeek, getDay, addMinutes, startOfDay, addDays } from "date-fns";
 import { sk } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/hooks/useBusiness";
+import { generateSlots, type BusinessHours, type EmployeeSchedule, type ExistingAppointment } from "@/lib/availability";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -47,11 +48,13 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [business, setBusiness] = useState<any>(null);
+  const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
 
   const [bookingModal, setBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
   const [bookForm, setBookForm] = useState({ service_id: "", employee_id: "", start_at: "" });
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<Date[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [detailModal, setDetailModal] = useState(false);
@@ -76,38 +79,66 @@ export default function CalendarPage() {
 
   useEffect(() => {
     loadEvents();
+    supabase.from("businesses").select("*").eq("id", businessId).maybeSingle().then(({ data }) => { if (data) setBusiness(data); });
     supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => { if (data) setServices(data); });
-    supabase.from("employees").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => { if (data) setEmployees(data); });
+    supabase.from("employees").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => {
+      if (data) {
+        setEmployees(data);
+        const ids = data.map((e: any) => e.id);
+        if (ids.length) {
+          supabase.from("schedules").select("*").in("employee_id", ids).then(({ data: scheds }) => {
+            const map: Record<string, EmployeeSchedule[]> = {};
+            (scheds ?? []).forEach((s: any) => {
+              if (!map[s.employee_id]) map[s.employee_id] = [];
+              map[s.employee_id].push(s);
+            });
+            setSchedules(map);
+          });
+        }
+      }
+    });
   }, [businessId, loadEvents]);
 
-  const generateSlots = useCallback(async (slotDate: Date, employeeId: string, serviceId: string) => {
+  const loadAvailableSlots = useCallback(async (slotDate: Date, employeeId: string, serviceId: string) => {
     const service = services.find((s) => s.id === serviceId);
-    if (!service || !employeeId) return;
-    const duration = service.duration_minutes + (service.buffer_minutes ?? 0);
-    const slots: string[] = [];
-    const dayStart = new Date(slotDate); dayStart.setHours(9, 0, 0, 0);
-    const dayEnd = new Date(slotDate); dayEnd.setHours(19, 0, 0, 0);
-    const { data: existing } = await supabase.from("appointments").select("start_at, end_at")
-      .eq("employee_id", employeeId).gte("start_at", dayStart.toISOString()).lte("start_at", dayEnd.toISOString()).neq("status", "cancelled");
-    let cursor = new Date(dayStart);
-    while (cursor < dayEnd) {
-      const slotEnd = addMinutes(cursor, duration);
-      const conflict = (existing ?? []).some((a) => cursor < new Date(a.end_at) && slotEnd > new Date(a.start_at));
-      if (!conflict && slotEnd <= dayEnd) slots.push(cursor.toISOString());
-      cursor = addMinutes(cursor, 30);
-    }
+    if (!service || !employeeId || !business) return;
+
+    const dayStart = startOfDay(slotDate);
+    const dayEnd = addDays(dayStart, 1);
+
+    const { data: existing } = await supabase
+      .from("appointments")
+      .select("start_at, end_at")
+      .eq("employee_id", employeeId)
+      .gte("start_at", dayStart.toISOString())
+      .lt("start_at", dayEnd.toISOString())
+      .neq("status", "cancelled");
+
+    const slots = generateSlots({
+      date: slotDate,
+      serviceDuration: service.duration_minutes,
+      serviceBuffer: service.buffer_minutes ?? 0,
+      openingHours: (business.opening_hours ?? {}) as BusinessHours,
+      employeeSchedules: schedules[employeeId] ?? [],
+      existingAppointments: (existing ?? []) as ExistingAppointment[],
+      leadTimeMinutes: 0, // Admin can book anytime
+    });
+
     setAvailableSlots(slots);
-  }, [services]);
+  }, [services, business, schedules]);
 
   useEffect(() => {
     if (bookForm.service_id && bookForm.employee_id && selectedSlot) {
-      generateSlots(selectedSlot.start, bookForm.employee_id, bookForm.service_id);
+      loadAvailableSlots(selectedSlot.start, bookForm.employee_id, bookForm.service_id);
     }
-  }, [bookForm.service_id, bookForm.employee_id, selectedSlot, generateSlots]);
+  }, [bookForm.service_id, bookForm.employee_id, selectedSlot, loadAvailableSlots]);
 
   const handleSelectSlot = (slot: SlotInfo) => {
     if (!isOwnerOrAdmin) return;
-    setSelectedSlot(slot); setBookForm({ service_id: "", employee_id: "", start_at: "" }); setAvailableSlots([]); setBookingModal(true);
+    setSelectedSlot(slot);
+    setBookForm({ service_id: "", employee_id: "", start_at: "" });
+    setAvailableSlots([]);
+    setBookingModal(true);
   };
 
   const handleSelectEvent = (event: CalEvent) => { setSelectedEvent(event); setDetailModal(true); };
@@ -119,9 +150,16 @@ export default function CalendarPage() {
     const duration = (service?.duration_minutes ?? 30) + (service?.buffer_minutes ?? 0);
     const start = new Date(bookForm.start_at);
     const end = addMinutes(start, duration);
+
+    // Find or create a walk-in customer
     const { data: customer } = await supabase.from("customers")
-      .insert({ business_id: businessId, full_name: "Nový zákazník", email: `admin-${Date.now()}@papi.sk` }).select().single();
+      .upsert(
+        { business_id: businessId, full_name: "Zákazník (osobne)", email: `walkin-${Date.now()}@internal` },
+        { onConflict: "business_id,email" }
+      )
+      .select().single();
     if (!customer) { toast.error("Chyba pri vytváraní zákazníka"); setSaving(false); return; }
+
     const { error } = await supabase.from("appointments").insert({
       business_id: businessId, customer_id: customer.id, employee_id: bookForm.employee_id,
       service_id: bookForm.service_id, start_at: start.toISOString(), end_at: end.toISOString(), status: "confirmed",
@@ -181,12 +219,15 @@ export default function CalendarPage() {
               <div className="space-y-1.5">
                 <Label>Dostupný čas</Label>
                 <div className="grid grid-cols-4 gap-1.5 max-h-40 overflow-y-auto">
-                  {availableSlots.map((slot) => (
-                    <button key={slot} onClick={() => setBookForm((f) => ({ ...f, start_at: slot }))}
-                      className={`text-xs py-1.5 rounded-md border transition-colors font-medium ${bookForm.start_at === slot ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background hover:bg-accent"}`}>
-                      {fmtDate(new Date(slot), "HH:mm")}
-                    </button>
-                  ))}
+                  {availableSlots.map((slot) => {
+                    const iso = slot.toISOString();
+                    return (
+                      <button key={iso} onClick={() => setBookForm((f) => ({ ...f, start_at: iso }))}
+                        className={`text-xs py-1.5 rounded-md border transition-colors font-medium ${bookForm.start_at === iso ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background hover:bg-accent"}`}>
+                        {fmtDate(slot, "HH:mm")}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

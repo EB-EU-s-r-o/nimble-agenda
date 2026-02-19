@@ -9,6 +9,7 @@ import { AdminLayout } from "@/components/AdminLayout";
 
 import Index from "./pages/Index";
 import AuthPage from "./pages/Auth";
+import BookingPage from "./pages/BookingPage";
 import NotFound from "./pages/NotFound";
 import DashboardPage from "./pages/admin/DashboardPage";
 import CalendarPage from "./pages/admin/CalendarPage";
@@ -28,7 +29,8 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/auth" replace />} />
+            <Route path="/" element={<Navigate to="/booking" replace />} />
+            <Route path="/booking" element={<BookingPage />} />
             <Route path="/auth" element={<AuthPage />} />
 
             <Route
