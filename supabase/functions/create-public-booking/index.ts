@@ -176,6 +176,7 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
+    console.error("create-public-booking error:", err);
     return new Response(
       JSON.stringify({ error: "Interná chyba servera" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
