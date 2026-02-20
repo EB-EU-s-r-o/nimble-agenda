@@ -157,16 +157,16 @@ export default function AuthPage() {
   const isLoading = loading || webauthnLoading;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[hsl(20,18%,8%)] to-[hsl(25,12%,5%)] p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-            <Scissors className="w-5 h-5 text-primary-foreground" />
+          <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
+            <Scissors className="w-5 h-5 text-gold-foreground" />
           </div>
-          <span className="text-2xl font-bold text-foreground">Papi Hair</span>
+          <span className="text-2xl font-bold text-white">PAPI HAIR DESIGN</span>
         </div>
 
-        <Card className="shadow-lg border-border">
+        <Card className="shadow-lg border-gold/20 bg-card/90 backdrop-blur-sm">
           <CardHeader>
             <CardTitle>
               {mode === "login" ? "Prihlásenie" : mode === "register" ? "Registrácia" : "Obnova hesla"}

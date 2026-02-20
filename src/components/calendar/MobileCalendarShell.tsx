@@ -182,7 +182,7 @@ export default function MobileCalendarShell() {
 
   return (
     <div
-      className="cal-shell flex flex-col h-[100dvh] bg-gradient-to-b from-[hsl(222,25%,8%)] via-[hsl(240,18%,10%)] to-[hsl(260,20%,8%)]"
+      className="cal-shell flex flex-col h-[100dvh] bg-gradient-to-b from-[hsl(20,18%,6%)] via-[hsl(25,15%,7%)] to-[hsl(20,12%,5%)]"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >

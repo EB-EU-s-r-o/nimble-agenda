@@ -3,16 +3,16 @@
 .liquid-window {
   position: absolute;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(218, 165, 32, 0.2);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(218, 165, 32, 0.12);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.04) 100%
+    rgba(30, 28, 22, 0.15) 0%,
+    rgba(20, 18, 14, 0.08) 100%
   );
   overflow: hidden;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
@@ -50,13 +50,13 @@
   position: relative;
   z-index: 2;
   padding: 8px 14px;
-  background: rgba(235, 235, 235, 0.85);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(30, 28, 25, 0.9);
+  border-bottom: 1px solid rgba(218, 165, 32, 0.15);
   text-align: center;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  color: rgba(0, 0, 0, 0.78);
+  letter-spacing: 0.03em;
+  color: rgba(218, 165, 32, 0.9);
   cursor: move;
   touch-action: none;
 }
@@ -66,8 +66,8 @@
   position: relative;
   z-index: 2;
   padding: 8px;
-  background: rgba(255, 255, 255, 0.66);
-  color: rgba(0, 0, 0, 0.72);
+  background: rgba(20, 18, 15, 0.7);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -77,10 +77,10 @@
   min-height: 100vh;
   background: linear-gradient(
     160deg,
-    hsl(222 25% 10%) 0%,
-    hsl(240 18% 16%) 30%,
-    hsl(260 20% 12%) 60%,
-    hsl(280 15% 10%) 100%
+    hsl(20 18% 6%) 0%,
+    hsl(25 15% 8%) 30%,
+    hsl(20 12% 7%) 60%,
+    hsl(30 10% 5%) 100%
   );
   background-size: 400% 400%;
   animation: liquid-gradient-shift 20s ease infinite;
@@ -108,7 +108,7 @@
 .liquid-glass-bg::before {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, hsl(35 80% 50%) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(43 74% 52%) 0%, transparent 70%);
   top: -10%;
   left: -5%;
   animation: liquid-orb-float-1 25s ease-in-out infinite;
@@ -117,7 +117,7 @@
 .liquid-glass-bg::after {
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, hsl(260 60% 50%) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(30 50% 30%) 0%, transparent 70%);
   bottom: -10%;
   right: -5%;
   animation: liquid-orb-float-2 30s ease-in-out infinite;
@@ -160,7 +160,7 @@
   position: absolute;
   bottom: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(218, 165, 32, 0.3);
   border-radius: 1px;
 }
 

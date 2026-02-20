@@ -107,27 +107,24 @@ export default function LiquidPlayground() {
         siblings={getSiblingRects("hero", DEFAULT_SIZES)}
       >
         <div className="flex flex-col items-center gap-3 py-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center shadow-lg">
-            <Scissors className="w-7 h-7 text-white" />
-          </div>
           <div className="text-center">
-            <h1 className="text-lg font-bold tracking-tight" style={{ color: "rgba(0,0,0,0.85)" }}>
-              PAPI HAIR DESIGN
+            <h1 className="text-lg font-bold tracking-widest text-white/90">
+              PAPI <span className="italic font-light tracking-normal">Hair</span> DESIGN
             </h1>
-            <p className="text-xs mt-1" style={{ color: "rgba(0,0,0,0.5)" }}>
-              Hair Studio & Barber · Košice
+            <p className="text-[10px] mt-1 text-white/40 tracking-wider uppercase">
+              est. 2018 · Košice
             </p>
-            <p className="text-[10px] mt-1 italic" style={{ color: "rgba(0,0,0,0.4)" }}>
-              Prémiové produkty Gold Haircare
+            <p className="text-xs mt-2 text-amber-400/80 font-medium">
+              Ambasádor GOLD Haircare Slovakia
             </p>
           </div>
           {openStatus && (
             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
               openStatus.is_open
-                ? "bg-green-100 text-green-800"
+                ? "bg-green-900/40 text-green-400"
                 : openStatus.mode === "on_request"
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-red-100 text-red-800"
+                  ? "bg-amber-900/40 text-amber-400"
+                  : "bg-red-900/40 text-red-400"
             }`}>
               <span className={`w-2 h-2 rounded-full ${
                 openStatus.is_open ? "bg-green-500" : openStatus.mode === "on_request" ? "bg-amber-500" : "bg-red-500"
@@ -153,13 +150,13 @@ export default function LiquidPlayground() {
           <div className="space-y-1.5">
             {hoursByDay.map(({ day, mode, time }) => (
               <div key={day} className="flex items-center justify-between text-xs">
-                <span className="font-medium" style={{ color: "rgba(0,0,0,0.7)" }}>
+                <span className="font-medium text-white/70">
                   {DAY_LABELS[day]}
                 </span>
                 <span
                   className="font-medium"
                   style={{
-                    color: mode === "closed" ? "rgba(180,40,40,0.7)" : mode === "on_request" ? "rgba(180,120,0,0.8)" : "rgba(0,0,0,0.6)",
+                    color: mode === "closed" ? "rgba(255,100,100,0.7)" : mode === "on_request" ? "rgba(218,165,32,0.8)" : "rgba(255,255,255,0.6)",
                   }}
                 >
                   {mode === "closed" ? "Zatvorené" : mode === "on_request" ? "Podľa objednávok" : time}
@@ -167,13 +164,13 @@ export default function LiquidPlayground() {
               </div>
             ))}
             {!openStatus?.is_open && nextOpening && (
-              <p className="text-[10px] mt-2 text-center" style={{ color: "rgba(0,0,0,0.45)" }}>
+              <p className="text-[10px] mt-2 text-center text-white/40">
                 Najbližšie otvárame: {nextOpening.time.slice(0, 5)}
               </p>
             )}
           </div>
         ) : (
-          <p className="text-xs" style={{ color: "rgba(0,0,0,0.4)" }}>Načítavam...</p>
+          <p className="text-xs text-white/40">Načítavam...</p>
         )}
       </LiquidWindow>
 
@@ -193,14 +190,14 @@ export default function LiquidPlayground() {
           <div className="space-y-3">
             {groups.map((g) => (
               <div key={g.label}>
-                <h3 className="text-xs font-bold mb-1 flex items-center gap-1" style={{ color: "rgba(0,0,0,0.7)" }}>
+                <h3 className="text-xs font-bold mb-1 flex items-center gap-1 text-amber-400/90">
                   <span>{g.icon}</span> {g.label}
                 </h3>
                 <div className="space-y-0.5">
                   {g.items.map((svc) => (
                     <div key={svc.id} className="flex items-center justify-between text-xs px-1">
-                      <span style={{ color: "rgba(0,0,0,0.65)" }}>{svc.name_sk}</span>
-                      <span className="font-semibold tabular-nums" style={{ color: "rgba(0,0,0,0.8)" }}>
+                      <span className="text-white/65">{svc.name_sk}</span>
+                      <span className="font-semibold tabular-nums text-white/85">
                         {svc.price != null ? `${Number(svc.price).toFixed(0)} €` : "—"}
                       </span>
                     </div>
@@ -208,12 +205,12 @@ export default function LiquidPlayground() {
                 </div>
               </div>
             ))}
-            <p className="text-[10px] italic text-center mt-2" style={{ color: "rgba(0,0,0,0.4)" }}>
+            <p className="text-[10px] italic text-center mt-2 text-white/40">
               Ceny sú orientačné – závisia od dĺžky a hustoty vlasov.
             </p>
           </div>
         ) : (
-          <p className="text-xs" style={{ color: "rgba(0,0,0,0.4)" }}>Načítavam cenník...</p>
+          <p className="text-xs text-white/40">Načítavam cenník...</p>
         )}
       </LiquidWindow>
 
@@ -229,8 +226,8 @@ export default function LiquidPlayground() {
         siblings={getSiblingRects("booking", DEFAULT_SIZES)}
       >
         <div className="flex flex-col items-center gap-3 py-2">
-          <Calendar className="w-8 h-8" style={{ color: "rgba(180,130,0,0.8)" }} />
-          <p className="text-xs text-center" style={{ color: "rgba(0,0,0,0.6)" }}>
+          <Calendar className="w-8 h-8 text-amber-400" />
+          <p className="text-xs text-center text-white/60">
             Rezervujte si termín online – vyberte službu, zamestnanca a čas.
           </p>
           <Link
@@ -241,7 +238,7 @@ export default function LiquidPlayground() {
             <Calendar className="w-4 h-4" />
             Rezervovať termín
           </Link>
-          <p className="text-[10px] italic text-center" style={{ color: "rgba(0,0,0,0.4)" }}>
+          <p className="text-[10px] italic text-center text-white/40">
             Rezervácie k Róbertovi "PAPI" – konzultácia na tel. č. nižšie
           </p>
         </div>
@@ -259,20 +256,20 @@ export default function LiquidPlayground() {
         siblings={getSiblingRects("contact", DEFAULT_SIZES)}
       >
         <div className="space-y-2 py-1">
-          <div className="flex items-center gap-2 text-xs" style={{ color: "rgba(0,0,0,0.65)" }}>
-            <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(180,130,0,0.8)" }} />
+          <div className="flex items-center gap-2 text-xs text-white/65">
+            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
             <span>Trieda SNP 61 (Spoločenský pavilón), Košice</span>
           </div>
-          <a href="tel:+421949459624" className="flex items-center gap-2 text-xs hover:underline" style={{ color: "rgba(0,0,0,0.65)" }}>
-            <Phone className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(180,130,0,0.8)" }} />
+          <a href="tel:+421949459624" className="flex items-center gap-2 text-xs text-white/65 hover:text-white hover:underline">
+            <Phone className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
             <span>+421 949 459 624</span>
           </a>
-          <a href="mailto:papihairdesign@gmail.com" className="flex items-center gap-2 text-xs hover:underline" style={{ color: "rgba(0,0,0,0.65)" }}>
-            <Mail className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(180,130,0,0.8)" }} />
+          <a href="mailto:papihairdesign@gmail.com" className="flex items-center gap-2 text-xs text-white/65 hover:text-white hover:underline">
+            <Mail className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
             <span>papihairdesign@gmail.com</span>
           </a>
-          <div className="flex items-center gap-2 text-xs" style={{ color: "rgba(0,0,0,0.65)" }}>
-            <Star className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(180,130,0,0.8)" }} />
+          <div className="flex items-center gap-2 text-xs text-white/65">
+            <Star className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
             <span>Prémiové produkty Gold Haircare</span>
           </div>
         </div>
