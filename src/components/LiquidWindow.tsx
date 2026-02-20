@@ -1,6 +1,45 @@
 import React, { useRef, useState, useCallback } from "react";
 import "@/styles/liquid-glass.css";
 
+const SNAP_THRESHOLD = 16; // px – magnetic pull distance
+
+interface Rect { x: number; y: number; w: number; h: number }
+
+/** Snap a position to viewport edges and sibling window edges */
+function snapToEdges(
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  siblings: Rect[],
+): { x: number; y: number; guides: { axis: "x" | "y"; pos: number }[] } {
+  let sx = cx;
+  let sy = cy;
+  const guides: { axis: "x" | "y"; pos: number }[] = [];
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Viewport edge snap
+  if (Math.abs(cx) < SNAP_THRESHOLD) { sx = 0; guides.push({ axis: "x", pos: 0 }); }
+  if (Math.abs(cy) < SNAP_THRESHOLD) { sy = 0; guides.push({ axis: "y", pos: 0 }); }
+  if (Math.abs(cx + w - vw) < SNAP_THRESHOLD) { sx = vw - w; guides.push({ axis: "x", pos: vw }); }
+  if (Math.abs(cy + h - vh) < SNAP_THRESHOLD) { sy = vh - h; guides.push({ axis: "y", pos: vh }); }
+
+  // Sibling edge snap
+  for (const s of siblings) {
+    // left edge → sibling right edge
+    if (Math.abs(cx - (s.x + s.w)) < SNAP_THRESHOLD) { sx = s.x + s.w; guides.push({ axis: "x", pos: s.x + s.w }); }
+    // right edge → sibling left edge
+    if (Math.abs(cx + w - s.x) < SNAP_THRESHOLD) { sx = s.x - w; guides.push({ axis: "x", pos: s.x }); }
+    // top edge → sibling bottom edge
+    if (Math.abs(cy - (s.y + s.h)) < SNAP_THRESHOLD) { sy = s.y + s.h; guides.push({ axis: "y", pos: s.y + s.h }); }
+    // bottom edge → sibling top edge
+    if (Math.abs(cy + h - s.y) < SNAP_THRESHOLD) { sy = s.y - h; guides.push({ axis: "y", pos: s.y }); }
+  }
+
+  return { x: sx, y: sy, guides };
+}
+
 interface LiquidWindowProps {
   id: string;
   title: string;
@@ -15,6 +54,8 @@ interface LiquidWindowProps {
   onDragStart: (id: string) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onResizeEnd?: (id: string, w: number, h: number) => void;
+  /** Sibling rects for cross-window snap */
+  siblings?: Rect[];
 }
 
 export default function LiquidWindow({
@@ -31,6 +72,7 @@ export default function LiquidWindow({
   onDragStart,
   onDragEnd,
   onResizeEnd,
+  siblings = [],
 }: LiquidWindowProps) {
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
@@ -46,12 +88,16 @@ export default function LiquidWindow({
     setPos({ x, y });
   }
 
-  const clamp = useCallback(
-    (cx: number, cy: number) => ({
-      x: Math.max(-size.w + 80, Math.min(cx, window.innerWidth - 80)),
-      y: Math.max(0, Math.min(cy, window.innerHeight - 40)),
-    }),
-    [size.w]
+  const snapAndClamp = useCallback(
+    (cx: number, cy: number) => {
+      const clamped = {
+        x: Math.max(-size.w + 80, Math.min(cx, window.innerWidth - 80)),
+        y: Math.max(0, Math.min(cy, window.innerHeight - 40)),
+      };
+      const snapped = snapToEdges(clamped.x, clamped.y, size.w, size.h ?? 200, siblings);
+      return { x: snapped.x, y: snapped.y };
+    },
+    [size.w, size.h, siblings]
   );
 
   // ── Drag handlers ──
@@ -71,9 +117,9 @@ export default function LiquidWindow({
       if (!dragging) return;
       const dx = e.clientX - origin.current.px;
       const dy = e.clientY - origin.current.py;
-      setPos(clamp(origin.current.ox + dx, origin.current.oy + dy));
+      setPos(snapAndClamp(origin.current.ox + dx, origin.current.oy + dy));
     },
-    [dragging, clamp]
+    [dragging, snapAndClamp]
   );
 
   const onPointerUp = useCallback(() => {

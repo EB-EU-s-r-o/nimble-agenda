@@ -4,6 +4,8 @@ export interface WindowPosition {
   x: number;
   y: number;
   z: number;
+  w?: number;
+  h?: number;
 }
 
 const STORAGE_KEY = "liquid-window-positions";
@@ -59,6 +61,28 @@ export function useWindowManager(
     });
   }, []);
 
+  const updateSize = useCallback((id: string, w: number, h: number) => {
+    setPositions((prev) => {
+      const next = { ...prev, [id]: { ...prev[id], w, h } };
+      savePositions(next);
+      return next;
+    });
+  }, []);
+
+  /** Get sibling rects for snap-to-edge (excludes the given id) */
+  const getSiblingRects = useCallback(
+    (excludeId: string, defaultSizes: Record<string, { w: number; h: number }>) =>
+      Object.entries(positions)
+        .filter(([id]) => id !== excludeId)
+        .map(([id, p]) => ({
+          x: p.x,
+          y: p.y,
+          w: p.w ?? defaultSizes[id]?.w ?? 260,
+          h: p.h ?? defaultSizes[id]?.h ?? 200,
+        })),
+    [positions]
+  );
+
   // Clamp to viewport on resize
   useEffect(() => {
     const onResize = () => {
@@ -84,5 +108,5 @@ export function useWindowManager(
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  return { positions, bringToFront, updatePosition };
+  return { positions, bringToFront, updatePosition, updateSize, getSiblingRects };
 }
