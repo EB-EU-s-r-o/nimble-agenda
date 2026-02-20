@@ -9,8 +9,8 @@ import { AdminLayout } from "@/components/AdminLayout";
 
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
-import BookingPage from "./pages/BookingPage";
-import NotFound from "./pages/NotFound";
+const BookingPage = lazy(() => import("./pages/BookingPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const AuthPage = lazy(() => import("./pages/Auth"));
 const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
