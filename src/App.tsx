@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { AdminLayout } from "@/components/AdminLayout";
 
 import { lazy, Suspense } from "react";
+import CookieConsent from "@/components/CookieConsent";
 import { Loader2 } from "lucide-react";
 import BookingPage from "./pages/BookingPage";
 import NotFound from "./pages/NotFound";
@@ -39,6 +40,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <CookieConsent />
       <BrowserRouter>
         <AuthProvider>
           <Suspense fallback={<LazyFallback />}>
