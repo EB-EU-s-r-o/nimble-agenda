@@ -5,12 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { AdminLayout } from "@/components/AdminLayout";
 import { ThemeProvider } from "next-themes";
 
 import { lazy, Suspense } from "react";
-import CookieConsent from "@/components/CookieConsent";
 import { Loader2 } from "lucide-react";
+
+const AdminLayout = lazy(() => import("@/components/AdminLayout").then(m => ({ default: m.AdminLayout })));
+const CookieConsent = lazy(() => import("@/components/CookieConsent"));
 
 const LiquidPlayground = lazy(() => import("./pages/LiquidPlayground"));
 const BookingPage = lazy(() => import("./pages/BookingPage"));
