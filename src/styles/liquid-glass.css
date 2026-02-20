@@ -72,15 +72,72 @@
   line-height: 1.5;
 }
 
-/* ── Dark-mode glass background ── */
+/* ── Dark-mode glass background with animated gradient ── */
 .liquid-glass-bg {
   min-height: 100vh;
   background: linear-gradient(
     160deg,
     hsl(222 25% 10%) 0%,
-    hsl(240 18% 16%) 50%,
-    hsl(260 20% 12%) 100%
+    hsl(240 18% 16%) 30%,
+    hsl(260 20% 12%) 60%,
+    hsl(280 15% 10%) 100%
   );
+  background-size: 400% 400%;
+  animation: liquid-gradient-shift 20s ease infinite;
+}
+
+@keyframes liquid-gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+}
+
+/* Parallax floating orbs */
+.liquid-glass-bg::before,
+.liquid-glass-bg::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  opacity: 0.18;
+  z-index: 0;
+}
+
+.liquid-glass-bg::before {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, hsl(35 80% 50%) 0%, transparent 70%);
+  top: -10%;
+  left: -5%;
+  animation: liquid-orb-float-1 25s ease-in-out infinite;
+}
+
+.liquid-glass-bg::after {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, hsl(260 60% 50%) 0%, transparent 70%);
+  bottom: -10%;
+  right: -5%;
+  animation: liquid-orb-float-2 30s ease-in-out infinite;
+}
+
+@keyframes liquid-orb-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, 80px) scale(1.1); }
+  66% { transform: translate(-40px, 40px) scale(0.95); }
+}
+
+@keyframes liquid-orb-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-50px, -60px) scale(1.05); }
+  66% { transform: translate(70px, -30px) scale(0.9); }
+}
+
+/* Ensure windows stay above orbs */
+.liquid-window {
+  z-index: 1;
 }
 
 /* ── Attribution label ── */
