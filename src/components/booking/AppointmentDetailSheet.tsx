@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
-import { Clock, User, Scissors, XCircle, Check, MoveHorizontal } from "lucide-react";
+import { Clock, User, XCircle, Check, MoveHorizontal } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import type { CalendarAppointment } from "@/components/calendar/AppointmentBlock";
 import {
   Drawer,
@@ -61,7 +62,7 @@ export default function AppointmentDetailSheet({
               <span className="text-white/80">{appointment.customer_name}</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <Scissors className="w-4 h-4 text-white/30 shrink-0" />
+              <LogoIcon size="sm" className="w-4 h-4 shrink-0 opacity-30" />
               <span className="text-white/80">{appointment.employee_name}</span>
             </div>
           </div>

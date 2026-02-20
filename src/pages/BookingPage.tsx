@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Loader2, Check, Calendar, Clock, User, Scissors } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Check, Calendar, Clock, User } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
 import { format, addDays, startOfDay, isSameDay, isAfter, isBefore } from "date-fns";
 import { sk } from "date-fns/locale";
@@ -456,7 +456,7 @@ function DesktopBookingWizard() {
             <Card className="border-border">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <Scissors className="w-4 h-4 text-muted-foreground" />
+                  <LogoIcon size="sm" className="w-4 h-4" />
                   <span className="font-medium">{selectedService?.name_sk}</span>
                   {selectedService?.price && <Badge variant="secondary" className="ml-auto">{selectedService.price}€</Badge>}
                 </div>
