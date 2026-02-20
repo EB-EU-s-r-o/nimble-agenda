@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 import BookingPage from "./pages/BookingPage";
 import NotFound from "./pages/NotFound";
 import OfflinePage from "./pages/OfflinePage";
-import LiquidPlayground from "./pages/LiquidPlayground";
+
 
 const AuthPage = lazy(() => import("./pages/Auth"));
 const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
@@ -44,7 +44,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Navigate to="/booking" replace />} />
               <Route path="/booking" element={<BookingPage />} />
-              <Route path="/liquid" element={<LiquidPlayground />} />
+              
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/offline" element={<OfflinePage />} />
               <Route
