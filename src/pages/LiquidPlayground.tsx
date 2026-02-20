@@ -8,8 +8,14 @@ const DEFAULTS: Record<string, { x: number; y: number }> = {
   about: { x: 180, y: 320 },
 };
 
+const DEFAULT_SIZES: Record<string, { w: number; h: number }> = {
+  intro: { w: 280, h: 200 },
+  features: { w: 260, h: 200 },
+  about: { w: 300, h: 200 },
+};
+
 export default function LiquidPlayground() {
-  const { positions, bringToFront, updatePosition } =
+  const { positions, bringToFront, updatePosition, updateSize, getSiblingRects } =
     useWindowManager(DEFAULTS);
 
   return (
@@ -21,6 +27,8 @@ export default function LiquidPlayground() {
         {...positions.intro}
         onDragStart={bringToFront}
         onDragEnd={updatePosition}
+        onResizeEnd={updateSize}
+        siblings={getSiblingRects("intro", DEFAULT_SIZES)}
       >
         <p>
           Welcome to <strong>Liquid Glass</strong> — a translucent, draggable
@@ -36,6 +44,8 @@ export default function LiquidPlayground() {
         {...positions.features}
         onDragStart={bringToFront}
         onDragEnd={updatePosition}
+        onResizeEnd={updateSize}
+        siblings={getSiblingRects("features", DEFAULT_SIZES)}
       >
         <ul className="list-disc pl-4 space-y-1">
           <li>Pointer-event drag &amp; drop</li>
@@ -43,6 +53,7 @@ export default function LiquidPlayground() {
           <li>localStorage persistence</li>
           <li>Viewport clamping</li>
           <li>Animated specular highlight</li>
+          <li>Snap-to-edge</li>
         </ul>
       </LiquidWindow>
 
@@ -53,6 +64,8 @@ export default function LiquidPlayground() {
         {...positions.about}
         onDragStart={bringToFront}
         onDragEnd={updatePosition}
+        onResizeEnd={updateSize}
+        siblings={getSiblingRects("about", DEFAULT_SIZES)}
       >
         <p>
           Built with React + TypeScript. No heavy UI libraries — pure Pointer
