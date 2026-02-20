@@ -51,9 +51,9 @@ export default function MobileCalendarShell() {
       .from("appointments")
       .select(`
         id, start_at, end_at, status, notes,
-        services!inner(name_sk),
-        employees!inner(display_name),
-        customers!inner(full_name)
+        services(name_sk),
+        employees(display_name),
+        customers(full_name)
       `)
       .eq("business_id", DEMO_BUSINESS_ID)
       .gte("start_at", dayStart)
