@@ -192,9 +192,9 @@ export default function LiquidPlayground() {
           <div className="space-y-3">
             {groups.map((g) => (
               <div key={g.label}>
-                <h3 className="text-xs font-bold mb-1 flex items-center gap-1 text-gold">
+                <h2 className="text-xs font-bold mb-1 flex items-center gap-1 text-gold">
                   <span>{g.icon}</span> {g.label}
-                </h3>
+                </h2>
                 <div className="space-y-0.5">
                   {g.items.map((svc) => (
                     <div key={svc.id} className="flex items-center justify-between text-xs px-1">
