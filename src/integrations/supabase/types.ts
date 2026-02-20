@@ -133,6 +133,123 @@ export type Database = {
           },
         ]
       }
+      business_date_overrides: {
+        Row: {
+          business_id: string
+          created_at: string
+          end_time: string | null
+          id: string
+          label: string | null
+          mode: Database["public"]["Enums"]["hour_mode"]
+          override_date: string
+          start_time: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          label?: string | null
+          mode?: Database["public"]["Enums"]["hour_mode"]
+          override_date: string
+          start_time?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          label?: string | null
+          mode?: Database["public"]["Enums"]["hour_mode"]
+          override_date?: string
+          start_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_date_overrides_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_hours: {
+        Row: {
+          business_id: string
+          created_at: string
+          day_of_week: Database["public"]["Enums"]["day_of_week"]
+          end_time: string
+          id: string
+          mode: Database["public"]["Enums"]["hour_mode"]
+          sort_order: number
+          start_time: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          day_of_week: Database["public"]["Enums"]["day_of_week"]
+          end_time?: string
+          id?: string
+          mode?: Database["public"]["Enums"]["hour_mode"]
+          sort_order?: number
+          start_time?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          day_of_week?: Database["public"]["Enums"]["day_of_week"]
+          end_time?: string
+          id?: string
+          mode?: Database["public"]["Enums"]["hour_mode"]
+          sort_order?: number
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_hours_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_quick_links: {
+        Row: {
+          business_id: string
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+          url: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          id?: string
+          label: string
+          sort_order?: number
+          url: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_quick_links_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       businesses: {
         Row: {
           address: string | null
@@ -517,6 +634,18 @@ export type Database = {
         Args: { _business_id: string; _user_id: string }
         Returns: boolean
       }
+      rpc_get_public_business_info: {
+        Args: { _business_id: string }
+        Returns: Json
+      }
+      rpc_is_open_now: {
+        Args: { _business_id: string; _ts?: string }
+        Returns: Json
+      }
+      rpc_next_opening: {
+        Args: { _business_id: string; _ts?: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "owner" | "admin" | "employee" | "customer"
@@ -529,6 +658,7 @@ export type Database = {
         | "friday"
         | "saturday"
         | "sunday"
+      hour_mode: "open" | "closed" | "on_request"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -667,6 +797,7 @@ export const Constants = {
         "saturday",
         "sunday",
       ],
+      hour_mode: ["open", "closed", "on_request"],
     },
   },
 } as const
