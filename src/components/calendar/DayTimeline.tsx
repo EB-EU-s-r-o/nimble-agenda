@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import AppointmentBlock, { type CalendarAppointment } from "./AppointmentBlock";
 
 const START_HOUR = 8;
@@ -26,20 +26,29 @@ export default function DayTimeline({
   );
   const totalHeight = hours.length * HOUR_HEIGHT;
 
-  // Scroll to current time on mount
+  // Live clock state — updates every 60s
+  const [now, setNow] = useState(() => new Date());
+
   useEffect(() => {
-    const now = new Date();
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Scroll to current time on mount / date change
+  const scrollToNow = useCallback(() => {
     const minutesSinceStart = (now.getHours() - START_HOUR) * 60 + now.getMinutes();
     if (minutesSinceStart > 0 && scrollRef.current) {
       const offset = (minutesSinceStart / 60) * HOUR_HEIGHT - 120;
-      scrollRef.current.scrollTop = Math.max(0, offset);
+      scrollRef.current.scrollTo({ top: Math.max(0, offset), behavior: "smooth" });
     }
-  }, [date]);
+  }, [now]);
+
+  useEffect(() => {
+    scrollToNow();
+  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Current time indicator position
-  const now = new Date();
-  const isToday =
-    date.toDateString() === now.toDateString();
+  const isToday = date.toDateString() === now.toDateString();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const nowTop = ((nowMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
   const showNowLine = isToday && nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60;
