@@ -592,6 +592,41 @@ export type Database = {
           },
         ]
       }
+      sync_dedup: {
+        Row: {
+          action_type: string
+          business_id: string
+          created_at: string
+          id: string
+          idempotency_key: string
+          result: Json | null
+        }
+        Insert: {
+          action_type: string
+          business_id: string
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          result?: Json | null
+        }
+        Update: {
+          action_type?: string
+          business_id?: string
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_dedup_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string

@@ -11,6 +11,7 @@ import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import BookingPage from "./pages/BookingPage";
 import NotFound from "./pages/NotFound";
+import OfflinePage from "./pages/OfflinePage";
 
 const AuthPage = lazy(() => import("./pages/Auth"));
 const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
@@ -21,6 +22,7 @@ const ServicesPage = lazy(() => import("./pages/admin/ServicesPage"));
 const CustomersPage = lazy(() => import("./pages/admin/CustomersPage"));
 const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
 const MySchedulePage = lazy(() => import("./pages/admin/MySchedulePage"));
+const ReceptionPage = lazy(() => import("./pages/ReceptionPage"));
 
 const LazyFallback = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -42,6 +44,15 @@ const App = () => (
               <Route path="/" element={<Navigate to="/booking" replace />} />
               <Route path="/booking" element={<BookingPage />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/offline" element={<OfflinePage />} />
+              <Route
+                path="/reception"
+                element={
+                  <ProtectedRoute>
+                    <ReceptionPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
                 path="/admin"
