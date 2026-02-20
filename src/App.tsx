@@ -13,7 +13,7 @@ import { Loader2 } from "lucide-react";
 const AdminLayout = lazy(() => import("@/components/AdminLayout").then(m => ({ default: m.AdminLayout })));
 const CookieConsent = lazy(() => import("@/components/CookieConsent"));
 
-const LiquidPlayground = lazy(() => import("./pages/LiquidPlayground"));
+import LiquidPlayground from "./pages/LiquidPlayground";
 const BookingPage = lazy(() => import("./pages/BookingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const OfflinePage = lazy(() => import("./pages/OfflinePage"));
