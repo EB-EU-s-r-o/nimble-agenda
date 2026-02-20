@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const allNavItems = [
   { title: "Prehľad", url: "/admin", icon: LayoutDashboard, roles: ["owner", "admin", "employee"] },
@@ -145,6 +146,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <header className="h-12 flex items-center border-b border-border px-4 bg-background sticky top-0 z-10">
             <SidebarTrigger className="mr-3" />
             <div className="flex-1" />
+            <ThemeToggle />
           </header>
           <main className="flex-1 p-6 overflow-auto">
             {children}
