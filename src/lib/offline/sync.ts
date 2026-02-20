@@ -1,5 +1,12 @@
-import { db } from "./db";
+import { db, type OfflineAction } from "./db";
 import { supabase } from "@/integrations/supabase/client";
+
+function getAppointmentId(action: OfflineAction): string | undefined {
+  if ("payload" in action && action.payload && "id" in action.payload) {
+    return action.payload.id;
+  }
+  return undefined;
+}
 
 interface SyncResponse {
   ok: boolean;
@@ -41,9 +48,12 @@ export async function runSync() {
 
         if (resp.ok) {
           if (resp.conflicts?.length) {
+            const conflict = resp.conflicts[0];
             await db.queue.update(item.id, {
               status: "conflict",
-              last_error: resp.conflicts.map((c) => c.reason).join("; "),
+              last_error: conflict.reason,
+              conflict_suggestion: conflict.server_suggestion || undefined,
+              appointment_id: getAppointmentId(item.action),
             });
           } else {
             await db.queue.update(item.id, { status: "done" });

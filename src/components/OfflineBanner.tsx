@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wifi, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
 
-export function OfflineBanner() {
+interface OfflineBannerProps {
+  onConflictsClick?: () => void;
+}
+
+export function OfflineBanner({ onConflictsClick }: OfflineBannerProps = {}) {
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
   const [conflicts, setConflicts] = useState(0);
@@ -67,7 +71,11 @@ export function OfflineBanner() {
       )}
 
       {conflicts > 0 && (
-        <Badge variant="destructive" className="text-xs gap-1">
+        <Badge
+          variant="destructive"
+          className="text-xs gap-1 cursor-pointer"
+          onClick={onConflictsClick}
+        >
           <AlertTriangle className="w-3 h-3" />
           {conflicts} konflikt{conflicts > 1 ? "y" : ""}
         </Badge>
