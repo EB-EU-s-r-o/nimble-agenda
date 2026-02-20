@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { addDays, startOfDay, format } from "date-fns";
+import { addDays } from "date-fns";
+import { startOfDayInTZ } from "@/lib/timezone";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,9 +12,9 @@ import AppointmentDetailSheet from "@/components/booking/AppointmentDetailSheet"
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 const SWIPE_THRESHOLD = 60;
-
+const BUSINESS_TZ = "Europe/Bratislava";
 export default function MobileCalendarShell() {
-  const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
+  const [currentDate, setCurrentDate] = useState(() => startOfDayInTZ(new Date(), BUSINESS_TZ));
   const [direction, setDirection] = useState(0); // -1 = prev, 1 = next
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [services, setServices] = useState<any[]>([]);
@@ -44,8 +45,8 @@ export default function MobileCalendarShell() {
 
   // Load appointments for current date
   const loadAppointments = useCallback(async () => {
-    const dayStart = startOfDay(currentDate).toISOString();
-    const dayEnd = addDays(startOfDay(currentDate), 1).toISOString();
+    const dayStart = startOfDayInTZ(currentDate, BUSINESS_TZ).toISOString();
+    const dayEnd = addDays(startOfDayInTZ(currentDate, BUSINESS_TZ), 1).toISOString();
 
     const { data } = await supabase
       .from("appointments")
@@ -82,7 +83,7 @@ export default function MobileCalendarShell() {
   // Navigation
   const goNextDay = () => { setDirection(1); setCurrentDate((d) => addDays(d, 1)); };
   const goPrevDay = () => { setDirection(-1); setCurrentDate((d) => addDays(d, -1)); };
-  const goToday = () => { setDirection(0); setCurrentDate(startOfDay(new Date())); };
+  const goToday = () => { setDirection(0); setCurrentDate(startOfDayInTZ(new Date(), BUSINESS_TZ)); };
 
   // Swipe handlers
   const onTouchStart = (e: React.TouchEvent) => {
@@ -205,6 +206,7 @@ export default function MobileCalendarShell() {
           <DayTimeline
             date={currentDate}
             appointments={appointments}
+            timezone={BUSINESS_TZ}
             onTapSlot={handleTapSlot}
             onTapAppointment={handleTapApt}
             onMoveAppointment={handleMoveAppointment}

@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import AppointmentBlock, { type CalendarAppointment } from "./AppointmentBlock";
+import { getMinutesInTZ, isSameDayInTZ } from "@/lib/timezone";
 
 const START_HOUR = 8;
 const END_HOUR = 20;
@@ -11,6 +12,7 @@ const MOVE_CANCEL_PX = 10;
 interface DayTimelineProps {
   date: Date;
   appointments: CalendarAppointment[];
+  timezone: string;
   onTapSlot: (time: Date) => void;
   onTapAppointment: (apt: CalendarAppointment) => void;
   onMoveAppointment?: (id: string, newStart: Date) => void;
@@ -19,6 +21,7 @@ interface DayTimelineProps {
 export default function DayTimeline({
   date,
   appointments,
+  timezone,
   onTapSlot,
   onTapAppointment,
   onMoveAppointment,
@@ -53,8 +56,8 @@ export default function DayTimeline({
   }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Current time indicator position
-  const isToday = date.toDateString() === now.toDateString();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const isToday = isSameDayInTZ(date, now, timezone);
+  const nowMinutes = getMinutesInTZ(now, timezone);
   const nowTop = ((nowMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
   const showNowLine = isToday && nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60;
 
@@ -279,6 +282,7 @@ export default function DayTimeline({
             appointment={apt}
             hourHeight={HOUR_HEIGHT}
             startHour={START_HOUR}
+            timezone={timezone}
             onClick={onTapAppointment}
             isDragging={dragId === apt.id}
             dragTop={dragId === apt.id ? dragTop : undefined}
