@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   LayoutDashboard, Calendar, BookOpen, Users, Briefcase, UserCheck,
-  Settings, LogOut, Scissors, ChevronRight, Monitor,
+  Settings, LogOut, ChevronRight, Monitor,
 } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -49,9 +50,7 @@ export function AdminSidebar() {
   return (
     <Sidebar className="border-r-0">
       <div className="flex items-center gap-2 px-4 py-4 border-b border-sidebar-border">
-        <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-          <Scissors className="w-4 h-4 text-sidebar-primary-foreground" />
-        </div>
+        <LogoIcon size="sm" />
         <div className="overflow-hidden">
           <p className="text-sm font-semibold text-sidebar-foreground truncate">PAPI HAIR DESIGN</p>
           <p className="text-xs text-sidebar-foreground/60 capitalize">{role ?? "hosť"}</p>

@@ -8,7 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Scissors, ChevronLeft, ChevronRight, Loader2, Check, Calendar, Clock, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Check, Calendar, Clock, User, Scissors } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { format, addDays, startOfDay, isSameDay, isAfter, isBefore } from "date-fns";
 import { sk } from "date-fns/locale";
 import { z } from "zod";
@@ -196,9 +197,7 @@ function DesktopBookingWizard() {
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gold flex items-center justify-center">
-            <Scissors className="w-4 h-4 text-gold-foreground" />
-          </div>
+          <LogoIcon size="sm" />
           <span className="font-semibold text-foreground">{business?.name ?? "Načítavam..."}</span>
           <div className="flex-1" />
           <Link to="/auth" className="text-xs text-muted-foreground hover:text-primary">

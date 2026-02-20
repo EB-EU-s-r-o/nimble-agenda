@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Scissors, Loader2, Fingerprint } from "lucide-react";
+import { Loader2, Fingerprint } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { z } from "zod";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 
@@ -160,9 +161,7 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center">
-            <Scissors className="w-5 h-5 text-gold-foreground" />
-          </div>
+          <LogoIcon size="md" />
           <span className="text-2xl font-bold text-foreground">PAPI HAIR DESIGN</span>
         </div>
 

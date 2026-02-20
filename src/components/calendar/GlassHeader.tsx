@@ -2,6 +2,7 @@ import { format, startOfWeek, endOfWeek } from "date-fns";
 import { sk } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import CalendarViewSwitcher, { type CalendarView } from "./CalendarViewSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface GlassHeaderProps {
   currentDate: Date;
@@ -55,6 +56,7 @@ export default function GlassHeader({
         </div>
 
         <div className="flex items-center gap-1">
+          <ThemeToggle />
           {!isToday && (
             <button
               onClick={onToday}

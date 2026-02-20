@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Scissors, Loader2, ChevronRight, ChevronLeft, Check, Building2, Clock, Briefcase, Users, Settings2 } from "lucide-react";
+import { Loader2, ChevronRight, ChevronLeft, Check, Building2, Clock, Briefcase, Users, Settings2 } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { z } from "zod";
 
 const DAYS = [
@@ -298,9 +299,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Scissors className="w-4 h-4 text-primary-foreground" />
-          </div>
+          <LogoIcon size="sm" />
           <span className="font-semibold text-foreground">Nastavenie salónu</span>
         </div>
       </header>
