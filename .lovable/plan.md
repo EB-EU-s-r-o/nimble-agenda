@@ -1,77 +1,48 @@
-Build a complete multi-tenant booking system from this blank Lovable starter using Supabase Free + shadcn/ui + Tailwind (Slovak UI only). Minimal iterations: implement end-to-end in one coherent pass with clean architecture.
 
-TECH
 
-- Supabase Free (Postgres) + RLS
+## Drag-to-Move pre appointments (long-press + 15-min snapping)
 
-- Auth: Email/Password + Google OAuth
+Pridanie Apple-like drag-to-move funkcionality: long-press na appointment spusti drag mode, appointment sleduje prst/myš, snappuje na 15-minútové intervaly, a po pusteni sa uloží nový čas do databázy.
 
-- Calendar: react-big-calendar with Month/Week/Day
+---
 
-- Validation: Zod, toasts: sonner
+### Zmeny v komponentoch
 
-DATA MODEL (must be multi-tenant)
+**1. AppointmentBlock.tsx** -- pridanie drag handlerov
 
-- businesses, profiles (auth.users), user_roles, memberships(business_id, profile_id, role)
+- Pridať props: `isDragging`, `dragTop`, `onDragStart`
+- Ak `isDragging` je true, pozícia sa riadi `dragTop` namiesto vypočítaného `top`
+- Vizuálny feedback: scale-up, zvýšený z-index, silnejší glow/shadow počas drag-u
+- Zrušiť `onClick` ak práve prebiehal drag (aby sa neotvoril detail sheet)
 
-- services(business_id, name_sk, duration, price?, buffer?)
+**2. DayTimeline.tsx** -- drag logika (Pointer Events)
 
-- employees(business_id, profile_id, display_name), schedules(employee_id, day_of_week, start_time, end_time)
+- Pridať nový prop `onMoveAppointment: (id: string, newStart: Date) => void`
+- Long-press detekcia (500ms timer cez `onPointerDown` na `.cal-apt`)
+- Po aktivácii drag modu:
+  - `onPointerMove`: prepočítať Y pozíciu na minúty, snapnuť na 15 min, aktualizovať `dragTop` state
+  - `onPointerUp`: zavolať `onMoveAppointment` s novým časom, resetovať drag state
+  - Haptic feedback indikátor: zobrazenie gold time labelu vedľa appointmentu počas ťahania
+- Zablokovať scroll (`touch-action: none`) počas drag-u
+- Zablokovať `handleGridTap` ak bol práve drag
 
-- customers(business_id, profile_id nullable, full_name, email unique per business, phone?)
+**3. MobileCalendarShell.tsx** -- Supabase update handler
 
-- appointments(business_id, customer_id, employee_id, service_id, start_at, end_at, status)
+- Pridať `handleMoveAppointment(id, newStart)`:
+  - Vypočítať nový `end_at` (zachovať rovnakú dĺžku trvania)
+  - `supabase.from("appointments").update({ start_at, end_at }).eq("id", id)`
+  - Toast "Rezervácia presunutá"
+  - Reload appointments
+- Predať ako prop do `DayTimeline`
 
-- onboarding_answers(business_id, step, data)
+---
 
-- booking_claims(business_id, appointment_id, email, token_hash, expires_at, used_at) for “claim account”
+### Technicky detaily
 
-RLS: owner/admin -> all in business; employee -> only own appointments; customer -> only own bookings once linked.
+- **Long-press**: `setTimeout(500ms)` na `pointerdown`, zrušiť na `pointermove` (ak > 10px pred timeoutom) alebo `pointerup`
+- **Snapping**: `Math.round(rawMinutes / 15) * 15` (rovnaký vzorec ako existujúci tap-to-slot)
+- **Drag ghost label**: absolutne poziciovaný `<span>` vedľa bloku zobrazujúci napr. "10:15" v gold farbe
+- **Hranice**: clamp na `START_HOUR * 60` az `END_HOUR * 60 - duration`
+- **Pointer Events** namiesto Touch Events pre kompatibilitu s myšou aj dotykmi
+- **setPointerCapture** na zachytenie pointer-u počas drag-u
 
-PUBLIC BOOKING (no login) + PREFILLED REGISTRATION (required)
-
-- Public booking page (mobile-first): service → employee or “Prvý voľný” → date → available time → contact → confirm.
-
-- Create booking via Supabase Edge Function (service role) to bypass RLS safely:
-
-  - validate availability, create/attach customer, create appointment, generate one-time claim token (30 min), store hashed token in booking_claims, return token once.
-
-- After booking show CTA “Dokonči registráciu” with prefilled form (email, meno, tel); user only sets password (or Google).
-
-- After auth success call Edge Function claimBooking(token) to link customers.profile_id = auth.uid() and mark used_at.
-
-AVAILABILITY ENGINE (must exist)
-
-Create a slot generator that returns available slots respecting:
-
-- business opening hours, employee schedules, service duration + buffer, lead time, max days ahead, timezone, existing appointments.
-
-Prevent double booking in UI + DB (use Postgres constraint/exclusion strategy if possible).
-
-ADMIN + EMPLOYEE DASHBOARD
-
-- Routing: /booking (public), /auth, /admin/*
-
-- Admin sidebar (SK): Prehľad, Kalendár, Rezervácie, Zamestnanci, Služby, Zákazníci, Nastavenia.
-
-- Employee sees only own Kalendár + Rezervácie.
-
-CALENDAR (core)
-
-- Big react-big-calendar Month/Week/Day with “Dnes” + navigation.
-
-- Click empty slot -> modal: service + employee + available times -> confirm.
-
-- Click event -> detail modal with actions (confirm/cancel/complete) role-based.
-
-DELIVERABLES
-
-- SQL migrations (tables, indexes, RLS, seed demo data)
-
-- Edge functions: createPublicBooking, claimBooking
-
-- Env vars + setup instructions; ensure build passes with 0 TS errors; unified design across admin+frontend.
-
-Start by implementing immediately (no extra questions); choose sensible defaults and document them.
-
-Prefer minimal new dependencies; reuse existing stack; keep files organized (lib/, features/, components/).
