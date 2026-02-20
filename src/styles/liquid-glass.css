@@ -84,6 +84,43 @@
 }
 
 /* ── Attribution label ── */
+/* ── Resize handle ── */
+.liquid-window__resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  z-index: 3;
+  touch-action: none;
+  border-radius: 0 0 14px 0;
+}
+
+.liquid-window__resize::before,
+.liquid-window__resize::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 1px;
+}
+
+.liquid-window__resize::before {
+  width: 8px;
+  height: 1.5px;
+  transform: rotate(-45deg);
+  transform-origin: bottom right;
+}
+
+.liquid-window__resize::after {
+  width: 1.5px;
+  height: 8px;
+  transform: rotate(-45deg);
+  transform-origin: bottom right;
+}
+
 .liquid-attr {
   position: fixed;
   bottom: 12px;
