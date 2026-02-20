@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogoIcon } from "@/components/LogoIcon";
+import { MapPin, Phone, Mail } from "lucide-react";
 
 const Index = () => {
   return (
@@ -10,7 +11,12 @@ const Index = () => {
           <LogoIcon size="lg" />
         </div>
         <h1 className="text-4xl font-bold text-foreground">PAPI HAIR DESIGN</h1>
-        <p className="text-muted-foreground text-lg">Profesionálny rezervačný systém pre salóny krásy</p>
+        <p className="text-muted-foreground text-lg">Hair studio & Barber | Predaj vlasovej kozmetiky</p>
+        <div className="flex flex-col items-center gap-1.5 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Trieda SNP 61 (Spoločenský pavilón), Košice</span>
+          <span className="inline-flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> +421 949 459 624</span>
+          <span className="inline-flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> papihairdesign@gmail.com</span>
+        </div>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild size="lg">
             <Link to="/auth">Prihlásiť sa</Link>
