@@ -24,7 +24,8 @@ export default function AuthPage() {
   const urlMode = searchParams.get("mode");
   const urlEmail = searchParams.get("email") ?? "";
   const urlName = searchParams.get("name") ?? "";
-  const claimToken = searchParams.get("claim") ?? "";
+  // Read claim token from sessionStorage (not URL) to prevent leakage via browser history/referrer
+  const claimToken = sessionStorage.getItem("claim_token") ?? "";
 
   const [mode, setMode] = useState<"login" | "register" | "forgot">(
     urlMode === "register" ? "register" : "login"
@@ -78,11 +79,12 @@ export default function AuthPage() {
         await supabase.functions.invoke("claim-booking", {
           body: { claim_token: claimToken },
         });
+        sessionStorage.removeItem("claim_token");
         toast.success("Registrácia úspešná! Rezervácia bola prepojená s vaším účtom.");
         navigate("/admin");
         return;
       } catch {
-        // Claim failed but registration succeeded
+        sessionStorage.removeItem("claim_token");
       }
     }
 
