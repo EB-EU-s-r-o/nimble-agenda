@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import "@/styles/liquid-glass.css";
 
 const SNAP_THRESHOLD = 16; // px – magnetic pull distance
@@ -74,6 +75,7 @@ export default function LiquidWindow({
   onResizeEnd,
   siblings = [],
 }: LiquidWindowProps) {
+  const isMobile = useIsMobile();
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
   const [pos, setPos] = useState({ x, y });
@@ -174,7 +176,7 @@ export default function LiquidWindow({
   return (
     <div
       className={`liquid-window${active ? " liquid-window--dragging" : ""}`}
-      style={{ left: pos.x, top: pos.y, width: size.w, height: size.h ?? "auto", zIndex: z }}
+      style={isMobile ? undefined : { left: pos.x, top: pos.y, width: size.w, height: size.h ?? "auto", zIndex: z }}
       onMouseMove={onMouseMove}
     >
       <div ref={specRef} className="liquid-window__specular" />
