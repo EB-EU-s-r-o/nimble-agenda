@@ -12,6 +12,7 @@ import { Loader2 } from "lucide-react";
 import BookingPage from "./pages/BookingPage";
 import NotFound from "./pages/NotFound";
 import OfflinePage from "./pages/OfflinePage";
+import LiquidPlayground from "./pages/LiquidPlayground";
 
 
 const AuthPage = lazy(() => import("./pages/Auth"));
@@ -42,7 +43,7 @@ const App = () => (
         <AuthProvider>
           <Suspense fallback={<LazyFallback />}>
             <Routes>
-              <Route path="/" element={<Navigate to="/booking" replace />} />
+              <Route path="/" element={<LiquidPlayground />} />
               <Route path="/booking" element={<BookingPage />} />
               
               <Route path="/auth" element={<AuthPage />} />
