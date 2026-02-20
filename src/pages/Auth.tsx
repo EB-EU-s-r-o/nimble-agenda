@@ -5,10 +5,12 @@ import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Scissors, Loader2 } from "lucide-react";
+import { Scissors, Loader2, Fingerprint } from "lucide-react";
 import { z } from "zod";
+import { useWebAuthn } from "@/hooks/useWebAuthn";
 
 const loginSchema = z.object({
   email: z.string().email("Neplatný email"),
@@ -25,7 +27,6 @@ export default function AuthPage() {
   const urlMode = searchParams.get("mode");
   const urlEmail = searchParams.get("email") ?? "";
   const urlName = searchParams.get("name") ?? "";
-  // Read claim token from sessionStorage (not URL) to prevent leakage via browser history/referrer
   const claimToken = sessionStorage.getItem("claim_token") ?? "";
 
   const [mode, setMode] = useState<"login" | "register" | "forgot">(
@@ -34,9 +35,28 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: urlEmail, password: "", fullName: urlName });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem("auth_remember_me") === "true";
+  });
+  const [hasPlatformAuth, setHasPlatformAuth] = useState(false);
+
+  const { isSupported: webauthnSupported, loading: webauthnLoading, checkPlatformAuthenticator, authenticateWithPasskey } = useWebAuthn();
+
+  useEffect(() => {
+    checkPlatformAuthenticator().then(setHasPlatformAuth);
+  }, [checkPlatformAuthenticator]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleRememberMeChange = (checked: boolean) => {
+    setRememberMe(checked);
+    if (checked) {
+      localStorage.setItem("auth_remember_me", "true");
+    } else {
+      localStorage.removeItem("auth_remember_me");
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +72,14 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
     setLoading(false);
     if (error) { toast.error("Prihlásenie zlyhalo: " + error.message); return; }
+
+    // If not "remember me", set a flag to clear session on tab close
+    if (!rememberMe) {
+      sessionStorage.setItem("auth_session_tab_only", "true");
+    } else {
+      sessionStorage.removeItem("auth_session_tab_only");
+    }
+
     navigate("/admin");
   };
 
@@ -74,7 +102,6 @@ export default function AuthPage() {
     setLoading(false);
     if (error) { toast.error("Registrácia zlyhala: " + error.message); return; }
 
-    // If we have a claim token, try to claim the booking
     if (claimToken && signUpData?.session) {
       try {
         await supabase.functions.invoke("claim-booking", {
@@ -109,6 +136,11 @@ export default function AuthPage() {
     if (error) { toast.error("Apple prihlásenie zlyhalo"); setLoading(false); }
   };
 
+  const handlePasskey = async () => {
+    const success = await authenticateWithPasskey(form.email || undefined);
+    if (success) navigate("/admin");
+  };
+
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.email) { setErrors({ email: "Zadajte email" }); return; }
@@ -121,6 +153,8 @@ export default function AuthPage() {
     toast.success("Email na obnovenie hesla bol odoslaný");
     setMode("login");
   };
+
+  const isLoading = loading || webauthnLoading;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4">
@@ -146,14 +180,14 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-             {mode !== "forgot" && (
+            {mode !== "forgot" && (
               <>
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full"
                   onClick={handleGoogle}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
                   <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -169,13 +203,27 @@ export default function AuthPage() {
                   variant="outline"
                   className="w-full"
                   onClick={handleApple}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
                   <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
                   </svg>
                   Pokračovať cez Apple
                 </Button>
+
+                {/* Passkey login button */}
+                {webauthnSupported && hasPlatformAuth && mode === "login" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handlePasskey}
+                    disabled={isLoading}
+                  >
+                    <Fingerprint className="w-4 h-4 mr-2" />
+                    Prihlásiť cez Passkey
+                  </Button>
+                )}
               </>
             )}
 
@@ -194,27 +242,41 @@ export default function AuthPage() {
               {mode === "register" && (
                 <div className="space-y-1.5">
                   <Label htmlFor="fullName">Celé meno</Label>
-                  <Input id="fullName" placeholder="Jana Nováková" value={form.fullName} onChange={set("fullName")} disabled={loading} />
+                  <Input id="fullName" placeholder="Jana Nováková" value={form.fullName} onChange={set("fullName")} disabled={isLoading} />
                   {errors.fullName && <p className="text-destructive text-xs">{errors.fullName}</p>}
                 </div>
               )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="jana@example.sk" value={form.email} onChange={set("email")} disabled={loading} />
+                <Input id="email" type="email" placeholder="jana@example.sk" value={form.email} onChange={set("email")} disabled={isLoading} />
                 {errors.email && <p className="text-destructive text-xs">{errors.email}</p>}
               </div>
 
               {mode !== "forgot" && (
                 <div className="space-y-1.5">
                   <Label htmlFor="password">Heslo</Label>
-                  <Input id="password" type="password" placeholder="••••••••" value={form.password} onChange={set("password")} disabled={loading} />
+                  <Input id="password" type="password" placeholder="••••••••" value={form.password} onChange={set("password")} disabled={isLoading} />
                   {errors.password && <p className="text-destructive text-xs">{errors.password}</p>}
                 </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {/* Remember me checkbox - only on login */}
+              {mode === "login" && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rememberMe"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => handleRememberMeChange(checked === true)}
+                  />
+                  <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
+                    Zapamätať si ma
+                  </Label>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {mode === "login" ? "Prihlásiť sa" : mode === "register" ? "Zaregistrovať sa" : "Odoslať email"}
               </Button>
             </form>

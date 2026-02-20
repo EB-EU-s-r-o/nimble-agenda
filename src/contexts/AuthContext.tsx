@@ -67,6 +67,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (user) await fetchProfile(user.id);
   };
 
+  // Clear session on tab close if "Remember me" was not checked
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sessionStorage.getItem("auth_session_tab_only") === "true") {
+        supabase.auth.signOut();
+        sessionStorage.removeItem("auth_session_tab_only");
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {

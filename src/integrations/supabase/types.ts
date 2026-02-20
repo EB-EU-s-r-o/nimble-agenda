@@ -480,6 +480,47 @@ export type Database = {
           },
         ]
       }
+      passkeys: {
+        Row: {
+          created_at: string
+          credential_id: string
+          device_name: string | null
+          id: string
+          last_used_at: string | null
+          profile_id: string
+          public_key: string
+          sign_count: number
+        }
+        Insert: {
+          created_at?: string
+          credential_id: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          profile_id: string
+          public_key: string
+          sign_count?: number
+        }
+        Update: {
+          created_at?: string
+          credential_id?: string
+          device_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          profile_id?: string
+          public_key?: string
+          sign_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passkeys_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
