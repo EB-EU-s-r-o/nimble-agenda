@@ -1,23 +1,31 @@
 
 
-# Mesacny grid na plnu vysku (100dvh)
+# Aktualizacia udajov PAPI HAIR DESIGN
 
-## Co sa zmeni
+## Co treba zmenit
 
-Roztiahneme MonthGrid tak, aby bunky dní vyplnili celý dostupný priestor pod headerom -- nie malé kompaktné štvorčeky, ale veľké prehľadné bunky na celú obrazovku.
+### 1. Databaza -- udaje firmy
+Aktualizacia zaznamu v tabulke `businesses`:
 
-## Technicke zmeny
+| Pole | Teraz | Novy udaj |
+|------|-------|-----------|
+| name | Papi Hair Studio | PAPI HAIR DESIGN |
+| address | Hlavna 15, Bratislava | Trieda SNP 61 (Spolocensky pavilon), Kosice, Slovensko |
+| phone | +421 900 123 456 | +421 949 459 624 |
+| email | (prazdne) | papihairdesign@gmail.com |
 
-### 1. `src/components/calendar/MonthGrid.tsx`
-- Zmena root divu z `flex-1 overflow-y-auto px-3 py-2` na `flex flex-col h-full px-3 py-2`
-- Day name headers: zostávajú kompaktné (fixná výška)
-- Day cells grid: zmena z `grid grid-cols-7 gap-px` na `grid grid-cols-7 gap-px flex-1` -- pridanie `flex-1` aby grid zabral celý zvyšný priestor
-- Každá bunka dňa: zmena z fixného `py-2.5` na `flex-1` so `min-h-0` aby sa rovnomerne roztiahli na celú výšku gridu
-- Väčší font pre čísla dní (z `text-sm` na `text-base` alebo `text-lg`)
-- Väčšie gold bodky indikátorov
+Otvaracie hodiny a rychle odkazy su uz spravne nastavene v databaze -- nie je potrebna zmena.
 
-### 2. `src/components/calendar/MobileCalendarShell.tsx`
-- Motion wrapper (`flex-1 min-h-0`) už správne zaberá zvyšný priestor -- nie je potrebná zmena, len treba zabezpečiť že MonthGrid vnútorne využíva celú výšku
+### 2. Landing page (Index.tsx)
+- Zmena podnadpisu z "Profesionalny rezervacny system pre salony krasy" na "Hair studio & Barber | Predaj vlasovej kozmetiky"
+- Pridanie adresy a kontaktu pod hlavny nadpis
 
-## Výsledok
-Mesačný grid sa roztiahne na celú dostupnú výšku pod GlassHeader, bunky dní budú veľké a prehľadné.
+### 3. Booking page info
+`BusinessInfoPanel` uz cita data z databazy, takze po aktualizacii DB sa automaticky zobrazia spravne udaje.
+
+## Technicke kroky
+
+1. **SQL migracia** -- UPDATE na tabulku `businesses` s novymi udajmi
+2. **Index.tsx** -- aktualizacia textov na landing page
+3. **Auth.tsx** -- kontrola ci sa tam zobrazuje nazov/popis, pripadna aktualizacia
+
