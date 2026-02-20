@@ -21,10 +21,11 @@ export async function listLocalAppointmentsForDay(dayISO: string) {
     .toArray();
 }
 
-export async function enqueueAction(action: QueueItem["action"]) {
+export async function enqueueAction(action: QueueItem["action"], appointmentId?: string) {
   await db.queue.add({
     action,
     status: "pending",
+    appointment_id: appointmentId,
     created_at: isoNow(),
   });
 }
@@ -40,7 +41,7 @@ export async function createAppointmentOffline(
     payload: appt,
     idempotency_key: makeKey("create"),
     created_at: isoNow(),
-  });
+  }, appt.id);
 
   return appt;
 }
@@ -65,7 +66,7 @@ export async function updateAppointmentOffline(
     payload: { ...patch, id: patch.id },
     idempotency_key: makeKey("update"),
     created_at: isoNow(),
-  });
+  }, patch.id);
 
   return merged;
 }
@@ -88,7 +89,7 @@ export async function cancelAppointmentOffline(id: string, reason?: string) {
     payload: { id, reason },
     idempotency_key: makeKey("cancel"),
     created_at: isoNow(),
-  });
+  }, id);
 
   return updated;
 }

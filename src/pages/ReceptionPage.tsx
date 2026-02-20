@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { ConflictResolutionDialog } from "@/components/ConflictResolutionDialog";
 import {
   createAppointmentOffline,
   listLocalAppointmentsForDay,
@@ -66,6 +67,7 @@ export default function ReceptionPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [showConflicts, setShowConflicts] = useState(false);
   const [addForm, setAddForm] = useState({
     customer_name: "",
     customer_phone: "",
@@ -186,7 +188,7 @@ export default function ReceptionPage() {
 
   return (
     <div className="min-h-screen bg-background p-4 max-w-2xl mx-auto space-y-4">
-      <OfflineBanner />
+      <OfflineBanner onConflictsClick={() => setShowConflicts(true)} />
 
       {/* Date navigation */}
       <div className="flex items-center justify-between">
@@ -414,6 +416,12 @@ export default function ReceptionPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConflictResolutionDialog
+        open={showConflicts}
+        onOpenChange={setShowConflicts}
+        onResolved={load}
+      />
     </div>
   );
 }
