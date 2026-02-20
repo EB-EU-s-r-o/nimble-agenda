@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "prompt",
-      includeAssets: ["favicon.ico", "placeholder.svg"],
+      includeAssets: ["favicon.ico", "placeholder.svg", "pwa-icon-192.png", "pwa-icon-512.png"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
@@ -54,16 +54,21 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       manifest: {
-        name: "PAPI HAIR DESIGN – Recepcia",
-        short_name: "PHD Recepcia",
-        description: "Offline-first recepčný režim pre správu rezervácií",
-        start_url: "/",
+        name: "PAPI HAIR DESIGN – Booking",
+        short_name: "PHD Booking",
+        description: "Prémiový rezervačný systém – PAPI HAIR DESIGN",
+        start_url: "/booking",
         display: "standalone",
+        orientation: "portrait",
         background_color: "#0b0b0b",
         theme_color: "#0b0b0b",
+        categories: ["business", "lifestyle"],
         icons: [
-          { src: "/favicon.ico", sizes: "64x64", type: "image/x-icon" },
+          { src: "/pwa-icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/pwa-icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "/pwa-icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
+        screenshots: [],
       },
     }),
   ].filter(Boolean),
