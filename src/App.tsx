@@ -10,10 +10,11 @@ import { AdminLayout } from "@/components/AdminLayout";
 import { lazy, Suspense } from "react";
 import CookieConsent from "@/components/CookieConsent";
 import { Loader2 } from "lucide-react";
-import BookingPage from "./pages/BookingPage";
-import NotFound from "./pages/NotFound";
-import OfflinePage from "./pages/OfflinePage";
-import LiquidPlayground from "./pages/LiquidPlayground";
+
+const LiquidPlayground = lazy(() => import("./pages/LiquidPlayground"));
+const BookingPage = lazy(() => import("./pages/BookingPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const OfflinePage = lazy(() => import("./pages/OfflinePage"));
 
 
 const AuthPage = lazy(() => import("./pages/Auth"));
