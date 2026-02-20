@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { addDays, startOfDay, format } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import GlassHeader from "./GlassHeader";
@@ -13,6 +14,7 @@ const SWIPE_THRESHOLD = 60;
 
 export default function MobileCalendarShell() {
   const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
+  const [direction, setDirection] = useState(0); // -1 = prev, 1 = next
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -78,9 +80,9 @@ export default function MobileCalendarShell() {
   }, [loadAppointments]);
 
   // Navigation
-  const goNextDay = () => setCurrentDate((d) => addDays(d, 1));
-  const goPrevDay = () => setCurrentDate((d) => addDays(d, -1));
-  const goToday = () => setCurrentDate(startOfDay(new Date()));
+  const goNextDay = () => { setDirection(1); setCurrentDate((d) => addDays(d, 1)); };
+  const goPrevDay = () => { setDirection(-1); setCurrentDate((d) => addDays(d, -1)); };
+  const goToday = () => { setDirection(0); setCurrentDate(startOfDay(new Date())); };
 
   // Swipe handlers
   const onTouchStart = (e: React.TouchEvent) => {
@@ -190,13 +192,25 @@ export default function MobileCalendarShell() {
         onToday={goToday}
       />
 
-      <DayTimeline
-        date={currentDate}
-        appointments={appointments}
-        onTapSlot={handleTapSlot}
-        onTapAppointment={handleTapApt}
-        onMoveAppointment={handleMoveAppointment}
-      />
+      <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+        <motion.div
+          key={currentDate.toISOString()}
+          custom={direction}
+          initial={{ x: direction === 0 ? 0 : direction > 0 ? "40%" : "-40%", opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: direction > 0 ? "-40%" : "40%", opacity: 0 }}
+          transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.8 }}
+          className="flex-1 min-h-0"
+        >
+          <DayTimeline
+            date={currentDate}
+            appointments={appointments}
+            onTapSlot={handleTapSlot}
+            onTapAppointment={handleTapApt}
+            onMoveAppointment={handleMoveAppointment}
+          />
+        </motion.div>
+      </AnimatePresence>
 
       <QuickBookingSheet
         open={bookingOpen}
