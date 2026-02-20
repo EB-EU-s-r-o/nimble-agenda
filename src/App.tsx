@@ -16,6 +16,7 @@ const LiquidPlayground = lazy(() => import("./pages/LiquidPlayground"));
 const BookingPage = lazy(() => import("./pages/BookingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const OfflinePage = lazy(() => import("./pages/OfflinePage"));
+const InstallPage = lazy(() => import("./pages/InstallPage"));
 
 
 const AuthPage = lazy(() => import("./pages/Auth"));
@@ -53,6 +54,7 @@ const App = () => (
               
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/offline" element={<OfflinePage />} />
+              <Route path="/install" element={<InstallPage />} />
               <Route
                 path="/reception"
                 element={
