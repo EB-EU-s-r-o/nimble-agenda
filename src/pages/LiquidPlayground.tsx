@@ -122,10 +122,10 @@ export default function LiquidPlayground() {
           {openStatus && (
             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
               openStatus.is_open
-                ? "bg-green-900/40 text-green-400"
+                ? "bg-green-500/15 text-green-600 dark:bg-green-900/40 dark:text-green-400"
                 : openStatus.mode === "on_request"
-                  ? "bg-amber-900/40 text-amber-400"
-                  : "bg-red-900/40 text-red-400"
+                  ? "bg-amber-500/15 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400"
+                  : "bg-red-500/15 text-red-600 dark:bg-red-900/40 dark:text-red-400"
             }`}>
               <span className={`w-2 h-2 rounded-full ${
                 openStatus.is_open ? "bg-green-500" : openStatus.mode === "on_request" ? "bg-amber-500" : "bg-red-500"
