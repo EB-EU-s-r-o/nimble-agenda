@@ -7,18 +7,26 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { AdminLayout } from "@/components/AdminLayout";
 
-import Index from "./pages/Index";
-import AuthPage from "./pages/Auth";
+import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import BookingPage from "./pages/BookingPage";
 import NotFound from "./pages/NotFound";
-import DashboardPage from "./pages/admin/DashboardPage";
-import CalendarPage from "./pages/admin/CalendarPage";
-import AppointmentsPage from "./pages/admin/AppointmentsPage";
-import EmployeesPage from "./pages/admin/EmployeesPage";
-import ServicesPage from "./pages/admin/ServicesPage";
-import CustomersPage from "./pages/admin/CustomersPage";
-import SettingsPage from "./pages/admin/SettingsPage";
-import MySchedulePage from "./pages/admin/MySchedulePage";
+
+const AuthPage = lazy(() => import("./pages/Auth"));
+const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
+const CalendarPage = lazy(() => import("./pages/admin/CalendarPage"));
+const AppointmentsPage = lazy(() => import("./pages/admin/AppointmentsPage"));
+const EmployeesPage = lazy(() => import("./pages/admin/EmployeesPage"));
+const ServicesPage = lazy(() => import("./pages/admin/ServicesPage"));
+const CustomersPage = lazy(() => import("./pages/admin/CustomersPage"));
+const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
+const MySchedulePage = lazy(() => import("./pages/admin/MySchedulePage"));
+
+const LazyFallback = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -29,78 +37,80 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/booking" replace />} />
-            <Route path="/booking" element={<BookingPage />} />
-            <Route path="/auth" element={<AuthPage />} />
+          <Suspense fallback={<LazyFallback />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/booking" replace />} />
+              <Route path="/booking" element={<BookingPage />} />
+              <Route path="/auth" element={<AuthPage />} />
 
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><DashboardPage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/calendar"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><CalendarPage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/appointments"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><AppointmentsPage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/employees"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><EmployeesPage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/services"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><ServicesPage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/customers"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><CustomersPage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/settings"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><SettingsPage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/my"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout><MySchedulePage /></AdminLayout>
-                </ProtectedRoute>
-              }
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><DashboardPage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/calendar"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><CalendarPage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/appointments"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><AppointmentsPage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/employees"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><EmployeesPage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/services"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><ServicesPage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/customers"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><CustomersPage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><SettingsPage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/my"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><MySchedulePage /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
