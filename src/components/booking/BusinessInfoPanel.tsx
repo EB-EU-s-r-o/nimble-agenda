@@ -70,7 +70,7 @@ export function BusinessInfoPanel({ info, openStatus, nextOpening }: Props) {
           {hoursByDay.map(({ day, mode, intervals }) => (
             <div key={day} className="flex items-center justify-between text-xs">
               <span className="font-medium text-foreground w-6">{DAY_LABELS[day]}</span>
-              <span className={mode === "closed" ? "text-muted-foreground" : mode === "on_request" ? "text-amber-600" : "text-foreground"}>
+              <span className={mode === "closed" ? "text-muted-foreground" : mode === "on_request" ? "text-amber-700" : "text-foreground"}>
                 {mode === "closed" ? "Zatvorené" : mode === "on_request" ? "Na požiadanie" : intervals.join(", ")}
               </span>
             </div>
