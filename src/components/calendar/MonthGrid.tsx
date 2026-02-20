@@ -41,7 +41,7 @@ export default function MonthGrid({ currentDate, appointments, onDayClick }: Mon
   }, [appointments]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 py-2">
+    <div className="flex flex-col h-full px-3 py-2">
       {/* Day name headers */}
       <div className="grid grid-cols-7 mb-1">
         {DAY_NAMES.map((d) => (
@@ -51,8 +51,8 @@ export default function MonthGrid({ currentDate, appointments, onDayClick }: Mon
         ))}
       </div>
 
-      {/* Day cells */}
-      <div className="grid grid-cols-7 gap-px">
+      {/* Day cells — flex-1 stretches to fill remaining height */}
+      <div className="grid grid-cols-7 gap-px flex-1 auto-rows-fr">
         {days.map((day) => {
           const inMonth = isSameMonth(day, currentDate);
           const today = isToday(day);
@@ -63,7 +63,7 @@ export default function MonthGrid({ currentDate, appointments, onDayClick }: Mon
             <button
               key={key}
               onClick={() => onDayClick(day)}
-              className={`relative flex flex-col items-center justify-center py-2.5 rounded-xl transition-colors ${
+              className={`relative flex flex-col items-center justify-center min-h-0 rounded-xl transition-colors ${
                 !inMonth
                   ? "text-muted-foreground/25"
                   : today
@@ -75,14 +75,14 @@ export default function MonthGrid({ currentDate, appointments, onDayClick }: Mon
               {today && (
                 <div className="absolute inset-1 rounded-xl border-2 border-gold/60 bg-gold/15" />
               )}
-              <span className={`relative z-10 text-sm font-medium ${today ? "font-bold" : ""}`}>
+              <span className={`relative z-10 text-base font-medium ${today ? "font-bold" : ""}`}>
                 {format(day, "d")}
               </span>
               {/* Dot indicators */}
               {count > 0 && inMonth && (
-                <div className="relative z-10 flex gap-0.5 mt-0.5">
+                <div className="relative z-10 flex gap-1 mt-1">
                   {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
-                    <div key={i} className="w-1 h-1 rounded-full bg-gold" />
+                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-gold" />
                   ))}
                 </div>
               )}
