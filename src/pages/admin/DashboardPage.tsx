@@ -47,10 +47,10 @@ export default function DashboardPage() {
   }, [businessId]);
 
   const statCards = [
-    { title: "Dnes", value: stats.today, icon: Calendar, color: "text-blue-600", bg: "bg-blue-50" },
-    { title: "Celkovo rezervácií", value: stats.total, icon: TrendingUp, color: "text-primary", bg: "bg-secondary" },
-    { title: "Zamestnanci", value: stats.employees, icon: Users, color: "text-green-600", bg: "bg-green-50" },
-    { title: "Služby", value: stats.services, icon: Briefcase, color: "text-orange-600", bg: "bg-orange-50" },
+    { title: "Dnes", value: stats.today, icon: Calendar, color: "text-gold", bg: "bg-gold/10" },
+    { title: "Celkovo rezervácií", value: stats.total, icon: TrendingUp, color: "text-gold", bg: "bg-gold/10" },
+    { title: "Zamestnanci", value: stats.employees, icon: Users, color: "text-gold", bg: "bg-gold/10" },
+    { title: "Služby", value: stats.services, icon: Briefcase, color: "text-gold", bg: "bg-gold/10" },
   ];
 
   return (

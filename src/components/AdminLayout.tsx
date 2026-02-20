@@ -52,7 +52,7 @@ export function AdminSidebar() {
           <Scissors className="w-4 h-4 text-sidebar-primary-foreground" />
         </div>
         <div className="overflow-hidden">
-          <p className="text-sm font-semibold text-sidebar-foreground truncate">Papi Hair</p>
+          <p className="text-sm font-semibold text-sidebar-foreground truncate">PAPI HAIR DESIGN</p>
           <p className="text-xs text-sidebar-foreground/60 capitalize">{role ?? "hosť"}</p>
         </div>
       </div>

@@ -4,81 +4,81 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 222 20% 12%;
+    --background: 30 20% 96%;
+    --foreground: 20 15% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 20% 12%;
+    --card: 30 15% 98%;
+    --card-foreground: 20 15% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 20% 12%;
+    --popover: 30 15% 98%;
+    --popover-foreground: 20 15% 12%;
 
-    --primary: 265 70% 54%;
+    --primary: 43 74% 49%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 265 20% 94%;
-    --secondary-foreground: 265 50% 30%;
+    --secondary: 35 15% 91%;
+    --secondary-foreground: 30 30% 25%;
 
-    --muted: 220 15% 95%;
-    --muted-foreground: 220 10% 40%;
+    --muted: 30 10% 93%;
+    --muted-foreground: 25 8% 42%;
 
-    --accent: 265 40% 92%;
-    --accent-foreground: 265 60% 35%;
+    --accent: 38 30% 88%;
+    --accent-foreground: 30 40% 28%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
-    --ring: 265 70% 54%;
+    --border: 30 12% 86%;
+    --input: 30 12% 86%;
+    --ring: 43 74% 49%;
 
     --radius: 0.625rem;
 
-    --gold: 43 74% 52%;
+    --gold: 43 74% 49%;
     --gold-foreground: 30 10% 10%;
 
-    --sidebar-background: 265 30% 14%;
-    --sidebar-foreground: 265 10% 90%;
-    --sidebar-primary: 265 70% 65%;
+    --sidebar-background: 20 20% 8%;
+    --sidebar-foreground: 35 10% 88%;
+    --sidebar-primary: 43 74% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 265 25% 22%;
-    --sidebar-accent-foreground: 265 10% 90%;
-    --sidebar-border: 265 20% 22%;
-    --sidebar-ring: 265 70% 65%;
+    --sidebar-accent: 25 18% 16%;
+    --sidebar-accent-foreground: 35 10% 88%;
+    --sidebar-border: 25 15% 18%;
+    --sidebar-ring: 43 74% 55%;
   }
 
   .dark {
-    --background: 222 20% 8%;
-    --foreground: 210 15% 92%;
-    --card: 222 20% 11%;
-    --card-foreground: 210 15% 92%;
-    --popover: 222 20% 11%;
-    --popover-foreground: 210 15% 92%;
-    --primary: 265 65% 62%;
+    --background: 20 15% 6%;
+    --foreground: 35 12% 90%;
+    --card: 20 12% 10%;
+    --card-foreground: 35 12% 90%;
+    --popover: 20 12% 10%;
+    --popover-foreground: 35 12% 90%;
+    --primary: 43 74% 52%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 265 15% 20%;
-    --secondary-foreground: 265 30% 80%;
-    --muted: 222 15% 18%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 265 25% 22%;
-    --accent-foreground: 265 40% 85%;
+    --secondary: 25 12% 16%;
+    --secondary-foreground: 35 25% 75%;
+    --muted: 20 10% 15%;
+    --muted-foreground: 30 8% 50%;
+    --accent: 35 20% 18%;
+    --accent-foreground: 38 35% 78%;
     --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 15% 22%;
-    --input: 222 15% 22%;
-    --ring: 265 65% 62%;
+    --border: 20 12% 18%;
+    --input: 20 12% 18%;
+    --ring: 43 74% 52%;
 
     --gold: 43 74% 52%;
     --gold-foreground: 30 10% 10%;
 
-    --sidebar-background: 222 25% 7%;
-    --sidebar-foreground: 265 10% 88%;
-    --sidebar-primary: 265 65% 62%;
+    --sidebar-background: 20 20% 6%;
+    --sidebar-foreground: 35 10% 86%;
+    --sidebar-primary: 43 74% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 20% 14%;
-    --sidebar-accent-foreground: 265 10% 88%;
-    --sidebar-border: 222 20% 16%;
-    --sidebar-ring: 265 65% 62%;
+    --sidebar-accent: 25 15% 12%;
+    --sidebar-accent-foreground: 35 10% 86%;
+    --sidebar-border: 25 12% 14%;
+    --sidebar-ring: 43 74% 52%;
   }
 }
 
@@ -117,12 +117,12 @@
   color: hsl(var(--accent-foreground));
 }
 .rbc-toolbar button.rbc-active {
-  background-color: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  border-color: hsl(var(--primary));
+  background-color: hsl(var(--gold));
+  color: hsl(var(--gold-foreground));
+  border-color: hsl(var(--gold));
 }
 .rbc-toolbar button.rbc-active:hover {
-  background-color: hsl(var(--primary) / 0.9);
+  background-color: hsl(var(--gold) / 0.9);
 }
 .rbc-header {
   padding: 0.5rem;
@@ -144,20 +144,20 @@
   font-weight: 500;
   padding: 2px 6px !important;
   cursor: pointer;
-  background-color: hsl(var(--primary)) !important;
-  color: hsl(var(--primary-foreground)) !important;
+  background-color: hsl(var(--gold)) !important;
+  color: hsl(var(--gold-foreground)) !important;
   border: none !important;
 }
 .rbc-event.status-confirmed { background-color: hsl(142 65% 42%) !important; }
 .rbc-event.status-cancelled { background-color: hsl(0 65% 50%) !important; }
 .rbc-event.status-completed { background-color: hsl(220 15% 55%) !important; }
-.rbc-today { background-color: hsl(var(--accent) / 0.3) !important; }
+.rbc-today { background-color: hsl(var(--gold) / 0.12) !important; }
 .rbc-off-range-bg { background-color: hsl(var(--muted) / 0.5) !important; }
-.rbc-current-time-indicator { background-color: hsl(var(--primary)) !important; height: 2px !important; }
+.rbc-current-time-indicator { background-color: hsl(var(--gold)) !important; height: 2px !important; }
 .rbc-day-bg + .rbc-day-bg, .rbc-time-column + .rbc-time-column { border-left: 1px solid hsl(var(--border)); }
 .rbc-month-row + .rbc-month-row { border-top: 1px solid hsl(var(--border)); }
 .rbc-date-cell { padding: 0.25rem 0.5rem; font-size: 0.8rem; color: hsl(var(--foreground)); }
 .rbc-date-cell.rbc-off-range { color: hsl(var(--muted-foreground)); }
-.rbc-show-more { color: hsl(var(--primary)); font-size: 0.75rem; font-weight: 500; }
+.rbc-show-more { color: hsl(var(--gold)); font-size: 0.75rem; font-weight: 500; }
 .rbc-time-gutter .rbc-timeslot-group { min-height: 50px; }
-.rbc-slot-selection { background-color: hsl(var(--primary) / 0.15) !important; }
+.rbc-slot-selection { background-color: hsl(var(--gold) / 0.15) !important; }
