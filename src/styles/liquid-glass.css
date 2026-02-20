@@ -72,7 +72,32 @@
   line-height: 1.5;
 }
 
-/* ── Dark-mode glass background with animated gradient ── */
+/* Glass text helpers — adapt to theme */
+.glass-text { color: inherit; }
+.glass-text-muted { opacity: 0.6; }
+.glass-text-faint { opacity: 0.4; }
+.glass-text-strong { opacity: 0.9; }
+
+/* ── Light-mode glass overrides ── */
+:root:not(.dark) .liquid-window__title {
+  background: rgba(250, 248, 245, 0.92);
+  border-bottom: 1px solid rgba(180, 134, 11, 0.2);
+  color: rgba(30, 25, 15, 0.85);
+}
+
+:root:not(.dark) .liquid-window__content {
+  background: rgba(255, 255, 255, 0.82);
+  color: rgba(20, 15, 10, 0.78);
+}
+
+:root:not(.dark) .liquid-window {
+  border: 1px solid rgba(180, 134, 11, 0.18);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* ── Glass background with animated gradient ── */
 .liquid-glass-bg {
   min-height: 100vh;
   background: linear-gradient(
@@ -84,6 +109,16 @@
   );
   background-size: 400% 400%;
   animation: liquid-gradient-shift 20s ease infinite;
+}
+
+:root:not(.dark) .liquid-glass-bg {
+  background: linear-gradient(
+    160deg,
+    hsl(38 25% 94%) 0%,
+    hsl(35 20% 90%) 30%,
+    hsl(40 18% 93%) 60%,
+    hsl(42 22% 96%) 100%
+  );
 }
 
 @keyframes liquid-gradient-shift {

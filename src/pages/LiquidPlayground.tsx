@@ -4,6 +4,7 @@ import { useWindowManager } from "@/lib/useWindowManager";
 import { useBusinessInfo } from "@/hooks/useBusinessInfo";
 import { supabase } from "@/integrations/supabase/client";
 import { Scissors, Clock, Phone, MapPin, Mail, Calendar, Star } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import "@/styles/liquid-glass.css";
@@ -108,13 +109,13 @@ export default function LiquidPlayground() {
       >
         <div className="flex flex-col items-center gap-3 py-2">
           <div className="text-center">
-            <h1 className="text-lg font-bold tracking-widest text-white/90">
+            <h1 className="text-lg font-bold tracking-widest glass-text-strong">
               PAPI <span className="italic font-light tracking-normal">Hair</span> DESIGN
             </h1>
-            <p className="text-[10px] mt-1 text-white/40 tracking-wider uppercase">
+            <p className="text-[10px] mt-1 glass-text-faint tracking-wider uppercase">
               est. 2018 · Košice
             </p>
-            <p className="text-xs mt-2 text-amber-400/80 font-medium">
+            <p className="text-xs mt-2 text-gold font-medium">
               Ambasádor GOLD Haircare Slovakia
             </p>
           </div>
@@ -150,13 +151,13 @@ export default function LiquidPlayground() {
           <div className="space-y-1.5">
             {hoursByDay.map(({ day, mode, time }) => (
               <div key={day} className="flex items-center justify-between text-xs">
-                <span className="font-medium text-white/70">
+                <span className="font-medium glass-text-muted">
                   {DAY_LABELS[day]}
                 </span>
                 <span
                   className="font-medium"
                   style={{
-                    color: mode === "closed" ? "rgba(255,100,100,0.7)" : mode === "on_request" ? "rgba(218,165,32,0.8)" : "rgba(255,255,255,0.6)",
+                    color: mode === "closed" ? "var(--glass-closed, rgba(255,100,100,0.7))" : mode === "on_request" ? "var(--glass-request, rgba(218,165,32,0.8))" : "inherit",
                   }}
                 >
                   {mode === "closed" ? "Zatvorené" : mode === "on_request" ? "Podľa objednávok" : time}
@@ -164,13 +165,13 @@ export default function LiquidPlayground() {
               </div>
             ))}
             {!openStatus?.is_open && nextOpening && (
-              <p className="text-[10px] mt-2 text-center text-white/40">
+              <p className="text-[10px] mt-2 text-center glass-text-faint">
                 Najbližšie otvárame: {nextOpening.time.slice(0, 5)}
               </p>
             )}
           </div>
         ) : (
-          <p className="text-xs text-white/40">Načítavam...</p>
+          <p className="text-xs glass-text-faint">Načítavam...</p>
         )}
       </LiquidWindow>
 
@@ -190,14 +191,14 @@ export default function LiquidPlayground() {
           <div className="space-y-3">
             {groups.map((g) => (
               <div key={g.label}>
-                <h3 className="text-xs font-bold mb-1 flex items-center gap-1 text-amber-400/90">
+                <h3 className="text-xs font-bold mb-1 flex items-center gap-1 text-gold">
                   <span>{g.icon}</span> {g.label}
                 </h3>
                 <div className="space-y-0.5">
                   {g.items.map((svc) => (
                     <div key={svc.id} className="flex items-center justify-between text-xs px-1">
-                      <span className="text-white/65">{svc.name_sk}</span>
-                      <span className="font-semibold tabular-nums text-white/85">
+                      <span className="glass-text-muted">{svc.name_sk}</span>
+                      <span className="font-semibold tabular-nums glass-text-strong">
                         {svc.price != null ? `${Number(svc.price).toFixed(0)} €` : "—"}
                       </span>
                     </div>
@@ -205,12 +206,12 @@ export default function LiquidPlayground() {
                 </div>
               </div>
             ))}
-            <p className="text-[10px] italic text-center mt-2 text-white/40">
+            <p className="text-[10px] italic text-center mt-2 glass-text-faint">
               Ceny sú orientačné – závisia od dĺžky a hustoty vlasov.
             </p>
           </div>
         ) : (
-          <p className="text-xs text-white/40">Načítavam cenník...</p>
+          <p className="text-xs glass-text-faint">Načítavam cenník...</p>
         )}
       </LiquidWindow>
 
@@ -226,8 +227,8 @@ export default function LiquidPlayground() {
         siblings={getSiblingRects("booking", DEFAULT_SIZES)}
       >
         <div className="flex flex-col items-center gap-3 py-2">
-          <Calendar className="w-8 h-8 text-amber-400" />
-          <p className="text-xs text-center text-white/60">
+          <Calendar className="w-8 h-8 text-gold" />
+          <p className="text-xs text-center glass-text-muted">
             Rezervujte si termín online – vyberte službu, zamestnanca a čas.
           </p>
           <Link
@@ -238,7 +239,7 @@ export default function LiquidPlayground() {
             <Calendar className="w-4 h-4" />
             Rezervovať termín
           </Link>
-          <p className="text-[10px] italic text-center text-white/40">
+          <p className="text-[10px] italic text-center glass-text-faint">
             Rezervácie k Róbertovi "PAPI" – konzultácia na tel. č. nižšie
           </p>
         </div>
@@ -256,26 +257,29 @@ export default function LiquidPlayground() {
         siblings={getSiblingRects("contact", DEFAULT_SIZES)}
       >
         <div className="space-y-2 py-1">
-          <div className="flex items-center gap-2 text-xs text-white/65">
-            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
+          <div className="flex items-center gap-2 text-xs glass-text-muted">
+            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-gold" />
             <span>Trieda SNP 61 (Spoločenský pavilón), Košice</span>
           </div>
-          <a href="tel:+421949459624" className="flex items-center gap-2 text-xs text-white/65 hover:text-white hover:underline">
-            <Phone className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
+          <a href="tel:+421949459624" className="flex items-center gap-2 text-xs glass-text-muted hover:opacity-100 hover:underline">
+            <Phone className="w-3.5 h-3.5 flex-shrink-0 text-gold" />
             <span>+421 949 459 624</span>
           </a>
-          <a href="mailto:papihairdesign@gmail.com" className="flex items-center gap-2 text-xs text-white/65 hover:text-white hover:underline">
-            <Mail className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
+          <a href="mailto:papihairdesign@gmail.com" className="flex items-center gap-2 text-xs glass-text-muted hover:opacity-100 hover:underline">
+            <Mail className="w-3.5 h-3.5 flex-shrink-0 text-gold" />
             <span>papihairdesign@gmail.com</span>
           </a>
-          <div className="flex items-center gap-2 text-xs text-white/65">
-            <Star className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
+          <div className="flex items-center gap-2 text-xs glass-text-muted">
+            <Star className="w-3.5 h-3.5 flex-shrink-0 text-gold" />
             <span>Prémiové produkty Gold Haircare</span>
           </div>
         </div>
       </LiquidWindow>
 
-      <span className="liquid-attr">© 2026 PAPI HAIR DESIGN</span>
+      <div className="liquid-attr flex items-center gap-3">
+        <ThemeToggle />
+        <span>© 2026 PAPI HAIR DESIGN</span>
+      </div>
     </div>
   );
 }

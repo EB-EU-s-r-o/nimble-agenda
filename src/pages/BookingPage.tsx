@@ -192,16 +192,16 @@ function DesktopBookingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(20,18%,8%)] to-[hsl(25,12%,5%)]">
+    <div className="min-h-screen bg-gradient-to-br from-secondary to-background">
       {/* Header */}
-      <header className="border-b border-gold/10 bg-[hsl(20,15%,7%)]/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gold flex items-center justify-center">
             <Scissors className="w-4 h-4 text-gold-foreground" />
           </div>
-          <span className="font-semibold text-white">{business?.name ?? "Načítavam..."}</span>
+          <span className="font-semibold text-foreground">{business?.name ?? "Načítavam..."}</span>
           <div className="flex-1" />
-          <Link to="/auth" className="text-xs text-white/50 hover:text-gold">
+          <Link to="/auth" className="text-xs text-muted-foreground hover:text-primary">
             Prihlásiť sa
           </Link>
         </div>
