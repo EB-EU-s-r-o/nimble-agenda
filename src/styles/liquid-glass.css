@@ -130,3 +130,44 @@
   letter-spacing: 0.03em;
   pointer-events: none;
 }
+
+/* ── Mobile stacked layout ── */
+@media (max-width: 768px) {
+  .liquid-glass-bg {
+    padding: 16px;
+    padding-bottom: 48px;
+  }
+
+  .liquid-glass-bg--mobile .liquid-window {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    z-index: auto !important;
+    transform: none !important;
+    margin-bottom: 16px;
+  }
+
+  .liquid-glass-bg--mobile .liquid-window__title {
+    cursor: default;
+  }
+
+  .liquid-glass-bg--mobile .liquid-window__resize {
+    display: none;
+  }
+
+  .liquid-glass-bg--mobile .liquid-window--dragging {
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transform: none;
+  }
+
+  .liquid-attr {
+    position: relative;
+    text-align: center;
+    display: block;
+    margin-top: 8px;
+  }
+}
