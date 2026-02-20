@@ -19,6 +19,9 @@ const Index = () => {
         </div>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild size="lg">
+            <Link to="/booking">Rezervovať termín</Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
             <Link to="/auth">Prihlásiť sa</Link>
           </Button>
         </div>
