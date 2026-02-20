@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
-import { Clock, Scissors, Loader2 } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -122,7 +123,7 @@ export default function QuickBookingSheet({
                           : "border-white/10 bg-white/5 hover:bg-white/8"
                       }`}
                     >
-                      <Scissors className="w-4 h-4 text-gold shrink-0" />
+                      <LogoIcon size="sm" className="w-4 h-4 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{s.name_sk}</p>
                         <div className="flex items-center gap-2 mt-0.5">

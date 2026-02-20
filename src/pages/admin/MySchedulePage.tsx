@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, User, Scissors, Clock, Phone, Check } from "lucide-react";
+import { Loader2, User, Clock, Phone, Check } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { format as fmtDate } from "date-fns";
 
 const localizer = dateFnsLocalizer({
@@ -183,7 +184,7 @@ export default function MySchedulePage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-sm">
-                  <Scissors className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <LogoIcon size="sm" className="w-4 h-4 flex-shrink-0" />
                   <span>{selectedEvent.resource?.services?.name_sk}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">

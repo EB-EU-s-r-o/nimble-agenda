@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, Scissors } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { z } from "zod";
 
 const serviceSchema = z.object({
@@ -99,7 +100,7 @@ export default function ServicesPage() {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : services.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <Scissors className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <LogoIcon size="md" className="mx-auto mb-3 opacity-30" />
           <p>Žiadne služby</p>
           <Button variant="outline" className="mt-4" onClick={openCreate}>Pridať prvú službu</Button>
         </div>

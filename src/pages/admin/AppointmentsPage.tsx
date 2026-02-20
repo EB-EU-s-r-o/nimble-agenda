@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Search, Check, X, Clock, User, Scissors } from "lucide-react";
+import { Loader2, Search, Check, X, Clock, User } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
 
@@ -147,7 +148,7 @@ export default function AppointmentsPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <Scissors className="w-4 h-4 text-muted-foreground" />
+                  <LogoIcon size="sm" className="w-4 h-4" />
                   <span>{selected.services?.name_sk}</span>
                 </div>
                 <div className="flex items-center gap-2">
