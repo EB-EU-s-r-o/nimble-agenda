@@ -1,11 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { addDays } from "date-fns";
+import { addDays, addWeeks, addMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { startOfDayInTZ } from "@/lib/timezone";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import GlassHeader from "./GlassHeader";
 import DayTimeline from "./DayTimeline";
+import MonthGrid from "./MonthGrid";
+import WeekTimeline from "./WeekTimeline";
+import type { CalendarView } from "./CalendarViewSwitcher";
 import type { CalendarAppointment } from "./AppointmentBlock";
 import QuickBookingSheet from "@/components/booking/QuickBookingSheet";
 import AppointmentDetailSheet from "@/components/booking/AppointmentDetailSheet";
@@ -13,9 +16,11 @@ import AppointmentDetailSheet from "@/components/booking/AppointmentDetailSheet"
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 const SWIPE_THRESHOLD = 60;
 const BUSINESS_TZ = "Europe/Bratislava";
+
 export default function MobileCalendarShell() {
   const [currentDate, setCurrentDate] = useState(() => startOfDayInTZ(new Date(), BUSINESS_TZ));
-  const [direction, setDirection] = useState(0); // -1 = prev, 1 = next
+  const [view, setView] = useState<CalendarView>("day");
+  const [direction, setDirection] = useState(0);
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -43,10 +48,28 @@ export default function MobileCalendarShell() {
     load();
   }, []);
 
-  // Load appointments for current date
+  // Compute date range based on view
+  const getDateRange = useCallback(() => {
+    if (view === "month") {
+      const ms = startOfMonth(currentDate);
+      const me = endOfMonth(currentDate);
+      // Extend to full calendar weeks
+      const ws = startOfWeek(ms, { weekStartsOn: 1 });
+      const we = endOfWeek(me, { weekStartsOn: 1 });
+      return { start: ws, end: addDays(we, 1) };
+    }
+    if (view === "week") {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+      return { start: ws, end: addDays(ws, 7) };
+    }
+    // day
+    const dayStart = startOfDayInTZ(currentDate, BUSINESS_TZ);
+    return { start: dayStart, end: addDays(dayStart, 1) };
+  }, [currentDate, view]);
+
+  // Load appointments for current view range
   const loadAppointments = useCallback(async () => {
-    const dayStart = startOfDayInTZ(currentDate, BUSINESS_TZ).toISOString();
-    const dayEnd = addDays(startOfDayInTZ(currentDate, BUSINESS_TZ), 1).toISOString();
+    const { start, end } = getDateRange();
 
     const { data } = await supabase
       .from("appointments")
@@ -57,8 +80,8 @@ export default function MobileCalendarShell() {
         customers(full_name)
       `)
       .eq("business_id", DEMO_BUSINESS_ID)
-      .gte("start_at", dayStart)
-      .lt("start_at", dayEnd)
+      .gte("start_at", start.toISOString())
+      .lt("start_at", end.toISOString())
       .neq("status", "cancelled")
       .order("start_at");
 
@@ -74,16 +97,32 @@ export default function MobileCalendarShell() {
     }));
 
     setAppointments(mapped);
-  }, [currentDate]);
+  }, [getDateRange]);
 
   useEffect(() => {
     loadAppointments();
   }, [loadAppointments]);
 
-  // Navigation
-  const goNextDay = () => { setDirection(1); setCurrentDate((d) => addDays(d, 1)); };
-  const goPrevDay = () => { setDirection(-1); setCurrentDate((d) => addDays(d, -1)); };
-  const goToday = () => { setDirection(0); setCurrentDate(startOfDayInTZ(new Date(), BUSINESS_TZ)); };
+  // Navigation helpers
+  const navigate = useCallback((dir: number) => {
+    setDirection(dir);
+    setCurrentDate((d) => {
+      if (view === "month") return addMonths(d, dir);
+      if (view === "week") return addWeeks(d, dir);
+      return addDays(d, dir);
+    });
+  }, [view]);
+
+  const goToday = () => {
+    setDirection(0);
+    setCurrentDate(startOfDayInTZ(new Date(), BUSINESS_TZ));
+  };
+
+  // View change — drill-down from month/week to day
+  const handleDayClick = (date: Date) => {
+    setCurrentDate(date);
+    setView("day");
+  };
 
   // Swipe handlers
   const onTouchStart = (e: React.TouchEvent) => {
@@ -94,10 +133,8 @@ export default function MobileCalendarShell() {
   const onTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-    // Only horizontal swipe (not vertical scroll)
     if (Math.abs(dx) > SWIPE_THRESHOLD && dy < 100) {
-      if (dx < 0) goNextDay();
-      else goPrevDay();
+      navigate(dx < 0 ? 1 : -1);
     }
   };
 
@@ -123,48 +160,34 @@ export default function MobileCalendarShell() {
     customer_phone?: string;
   }) => {
     const { error } = await supabase.functions.invoke("create-public-booking", {
-      body: {
-        business_id: DEMO_BUSINESS_ID,
-        ...data,
-      },
+      body: { business_id: DEMO_BUSINESS_ID, ...data },
     });
-
     if (error) {
       toast.error("Chyba pri vytváraní rezervácie");
       throw error;
     }
-
     toast.success("Rezervácia vytvorená!");
     loadAppointments();
   };
 
-  // Move appointment (drag-to-move)
+  // Move appointment
   const handleMoveAppointment = async (id: string, newStart: Date) => {
     const apt = appointments.find((a) => a.id === id);
     if (!apt) return;
-
-    const oldStart = new Date(apt.start_at);
-    const oldEnd = new Date(apt.end_at);
-    const duration = oldEnd.getTime() - oldStart.getTime();
+    const duration = new Date(apt.end_at).getTime() - new Date(apt.start_at).getTime();
     const newEnd = new Date(newStart.getTime() + duration);
 
     const { error } = await supabase
       .from("appointments")
-      .update({
-        start_at: newStart.toISOString(),
-        end_at: newEnd.toISOString(),
-      })
+      .update({ start_at: newStart.toISOString(), end_at: newEnd.toISOString() })
       .eq("id", id);
 
-    if (error) {
-      toast.error("Chyba pri presúvaní");
-    } else {
-      toast.success("Rezervácia presunutá");
-    }
+    if (error) toast.error("Chyba pri presúvaní");
+    else toast.success("Rezervácia presunutá");
     loadAppointments();
   };
 
-  // Cancel appointment
+  // Cancel / mark arrived
   const handleCancel = async (id: string) => {
     await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id);
     toast.success("Rezervácia zrušená");
@@ -172,13 +195,15 @@ export default function MobileCalendarShell() {
     loadAppointments();
   };
 
-  // Mark arrived
   const handleMarkArrived = async (id: string) => {
     await supabase.from("appointments").update({ status: "completed" }).eq("id", id);
     toast.success("Označené ako prišiel");
     setDetailOpen(false);
     loadAppointments();
   };
+
+  // Animation key changes with view + date
+  const animKey = `${view}-${currentDate.toISOString()}`;
 
   return (
     <div
@@ -188,14 +213,16 @@ export default function MobileCalendarShell() {
     >
       <GlassHeader
         currentDate={currentDate}
-        onPrevDay={goPrevDay}
-        onNextDay={goNextDay}
+        view={view}
+        onViewChange={setView}
+        onPrev={() => navigate(-1)}
+        onNext={() => navigate(1)}
         onToday={goToday}
       />
 
       <AnimatePresence mode="popLayout" initial={false} custom={direction}>
         <motion.div
-          key={currentDate.toISOString()}
+          key={animKey}
           custom={direction}
           initial={{ x: direction === 0 ? 0 : direction > 0 ? "40%" : "-40%", opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -203,14 +230,32 @@ export default function MobileCalendarShell() {
           transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.8 }}
           className="flex-1 min-h-0"
         >
-          <DayTimeline
-            date={currentDate}
-            appointments={appointments}
-            timezone={BUSINESS_TZ}
-            onTapSlot={handleTapSlot}
-            onTapAppointment={handleTapApt}
-            onMoveAppointment={handleMoveAppointment}
-          />
+          {view === "month" && (
+            <MonthGrid
+              currentDate={currentDate}
+              appointments={appointments}
+              onDayClick={handleDayClick}
+            />
+          )}
+          {view === "week" && (
+            <WeekTimeline
+              currentDate={currentDate}
+              appointments={appointments}
+              timezone={BUSINESS_TZ}
+              onDayClick={handleDayClick}
+              onTapAppointment={handleTapApt}
+            />
+          )}
+          {view === "day" && (
+            <DayTimeline
+              date={currentDate}
+              appointments={appointments}
+              timezone={BUSINESS_TZ}
+              onTapSlot={handleTapSlot}
+              onTapAppointment={handleTapApt}
+              onMoveAppointment={handleMoveAppointment}
+            />
+          )}
         </motion.div>
       </AnimatePresence>
 
