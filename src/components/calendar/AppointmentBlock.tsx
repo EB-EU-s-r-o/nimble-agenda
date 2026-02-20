@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { getMinutesInTZ, formatTimeInTZ } from "@/lib/timezone";
 
 export interface CalendarAppointment {
   id: string;
@@ -15,6 +15,7 @@ interface AppointmentBlockProps {
   appointment: CalendarAppointment;
   hourHeight: number;
   startHour: number;
+  timezone: string;
   onClick: (apt: CalendarAppointment) => void;
   isDragging?: boolean;
   dragTop?: number;
@@ -31,14 +32,15 @@ export default function AppointmentBlock({
   appointment,
   hourHeight,
   startHour,
+  timezone,
   onClick,
   isDragging = false,
   dragTop,
 }: AppointmentBlockProps) {
   const start = new Date(appointment.start_at);
   const end = new Date(appointment.end_at);
-  const startMinutes = start.getHours() * 60 + start.getMinutes();
-  const endMinutes = end.getHours() * 60 + end.getMinutes();
+  const startMinutes = getMinutesInTZ(start, timezone);
+  const endMinutes = getMinutesInTZ(end, timezone);
   const durationMinutes = endMinutes - startMinutes;
 
   const calculatedTop = ((startMinutes - startHour * 60) / 60) * hourHeight;
@@ -65,7 +67,7 @@ export default function AppointmentBlock({
       </p>
       {durationMinutes >= 30 && (
         <p className="text-[10px] opacity-70 truncate mt-0.5">
-          {appointment.customer_name} · {format(start, "HH:mm")}–{format(end, "HH:mm")}
+          {appointment.customer_name} · {formatTimeInTZ(start, timezone)}–{formatTimeInTZ(end, timezone)}
         </p>
       )}
     </button>
