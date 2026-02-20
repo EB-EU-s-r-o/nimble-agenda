@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   LayoutDashboard, Calendar, BookOpen, Users, Briefcase, UserCheck,
-  Settings, LogOut, Scissors, ChevronRight,
+  Settings, LogOut, Scissors, ChevronRight, Monitor,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -25,6 +25,7 @@ const allNavItems = [
   { title: "Služby", url: "/admin/services", icon: Briefcase, roles: ["owner", "admin"] },
   { title: "Zákazníci", url: "/admin/customers", icon: UserCheck, roles: ["owner", "admin"] },
   { title: "Nastavenia", url: "/admin/settings", icon: Settings, roles: ["owner", "admin"] },
+  { title: "Recepcia", url: "/reception", icon: Monitor, roles: ["owner", "admin", "employee"] },
 ];
 
 export function AdminSidebar() {
