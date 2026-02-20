@@ -5,6 +5,7 @@ import { useBusinessInfo } from "@/hooks/useBusinessInfo";
 import { supabase } from "@/integrations/supabase/client";
 import { Scissors, Clock, Phone, MapPin, Mail, Calendar, Star } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 import "@/styles/liquid-glass.css";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
@@ -66,6 +67,7 @@ export default function LiquidPlayground() {
     useWindowManager(DEFAULTS);
   const { info, openStatus, nextOpening } = useBusinessInfo(DEMO_BUSINESS_ID);
   const [services, setServices] = useState<any[]>([]);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     supabase
@@ -92,7 +94,7 @@ export default function LiquidPlayground() {
     : [];
 
   return (
-    <div className="liquid-glass-bg relative overflow-hidden">
+    <div className={`liquid-glass-bg relative overflow-hidden${isMobile ? " liquid-glass-bg--mobile flex flex-col" : ""}`}>
       {/* ── Hero / Brand ── */}
       <LiquidWindow
         id="hero"
