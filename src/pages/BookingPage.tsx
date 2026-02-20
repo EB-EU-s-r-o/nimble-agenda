@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Scissors, ChevronLeft, ChevronRight, Loader2, Check, Calendar, Clock, User } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay, isAfter, isBefore } from "date-fns";
 import { sk } from "date-fns/locale";
@@ -34,6 +35,7 @@ export default function BookingPage() {
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const { info: businessInfo, openStatus, nextOpening } = useBusinessInfo(DEMO_BUSINESS_ID);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const [selectedService, setSelectedService] = useState<any>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
@@ -84,6 +86,7 @@ export default function BookingPage() {
         });
         setSchedules(map);
       }
+      setInitialLoading(false);
     };
     load();
   }, []);
@@ -194,10 +197,25 @@ export default function BookingPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Business info panel */}
-        {businessInfo && step === "service" && (
-          <div className="mb-6">
-            <BusinessInfoPanel info={businessInfo} openStatus={openStatus} nextOpening={nextOpening} />
+        {/* Business info panel - reserve space with skeleton */}
+        {step === "service" && (
+          <div className="mb-6 min-h-[220px]">
+            {businessInfo ? (
+              <BusinessInfoPanel info={businessInfo} openStatus={openStatus} nextOpening={nextOpening} />
+            ) : (
+              <div className="space-y-4">
+                <Skeleton className="h-6 w-32" />
+                <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <Skeleton className="h-3 w-6" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         {/* Progress */}
@@ -224,7 +242,21 @@ export default function BookingPage() {
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-foreground">Vyberte službu</h2>
             <div className="space-y-2">
-              {services.map((svc) => (
+              {initialLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-4 rounded-xl border border-border bg-card">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-5 w-40" />
+                        <Skeleton className="h-3 w-56" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                      <Skeleton className="h-7 w-12" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+              services.map((svc) => (
                 <button
                   key={svc.id}
                   onClick={() => { setSelectedService(svc); setStep("employee"); }}
@@ -244,7 +276,8 @@ export default function BookingPage() {
                     )}
                   </div>
                 </button>
-              ))}
+              ))
+              )}
             </div>
           </div>
         )}
