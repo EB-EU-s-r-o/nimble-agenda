@@ -97,18 +97,20 @@ export function BusinessInfoPanel({ info, openStatus, nextOpening }: Props) {
       {/* Quick links */}
       {info.quick_links.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {info.quick_links.map((link) => (
-            <a
-              key={link.id}
-              href={link.url}
-              target={link.url.startsWith("http") ? "_blank" : undefined}
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              {link.label}
-              {link.url.startsWith("http") && <ExternalLink className="w-3 h-3" />}
-            </a>
-          ))}
+          {info.quick_links
+            .filter((link) => /^(https?:\/\/|mailto:|tel:|\/)/.test(link.url))
+            .map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target={link.url.startsWith("http") ? "_blank" : undefined}
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                {link.label}
+                {link.url.startsWith("http") && <ExternalLink className="w-3 h-3" />}
+              </a>
+            ))}
         </div>
       )}
     </div>
