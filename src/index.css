@@ -34,6 +34,9 @@
 
     --radius: 0.625rem;
 
+    --gold: 43 74% 52%;
+    --gold-foreground: 30 10% 10%;
+
     --sidebar-background: 265 30% 14%;
     --sidebar-foreground: 265 10% 90%;
     --sidebar-primary: 265 70% 65%;
@@ -64,6 +67,10 @@
     --border: 222 15% 22%;
     --input: 222 15% 22%;
     --ring: 265 65% 62%;
+
+    --gold: 43 74% 52%;
+    --gold-foreground: 30 10% 10%;
+
     --sidebar-background: 222 25% 7%;
     --sidebar-foreground: 265 10% 88%;
     --sidebar-primary: 265 65% 62%;
