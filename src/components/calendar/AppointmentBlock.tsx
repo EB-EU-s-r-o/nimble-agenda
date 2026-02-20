@@ -16,6 +16,8 @@ interface AppointmentBlockProps {
   hourHeight: number;
   startHour: number;
   onClick: (apt: CalendarAppointment) => void;
+  isDragging?: boolean;
+  dragTop?: number;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -30,6 +32,8 @@ export default function AppointmentBlock({
   hourHeight,
   startHour,
   onClick,
+  isDragging = false,
+  dragTop,
 }: AppointmentBlockProps) {
   const start = new Date(appointment.start_at);
   const end = new Date(appointment.end_at);
@@ -37,15 +41,23 @@ export default function AppointmentBlock({
   const endMinutes = end.getHours() * 60 + end.getMinutes();
   const durationMinutes = endMinutes - startMinutes;
 
-  const top = ((startMinutes - startHour * 60) / 60) * hourHeight;
+  const calculatedTop = ((startMinutes - startHour * 60) / 60) * hourHeight;
+  const top = isDragging && dragTop != null ? dragTop : calculatedTop;
   const height = Math.max((durationMinutes / 60) * hourHeight, 28);
 
   const colorClass = STATUS_COLORS[appointment.status] || STATUS_COLORS.pending;
 
   return (
     <button
-      onClick={() => onClick(appointment)}
-      className={`cal-apt absolute left-[52px] right-2 rounded-lg border backdrop-blur-md px-3 py-1.5 text-left transition-transform active:scale-[0.98] ${colorClass}`}
+      data-apt-id={appointment.id}
+      onClick={() => {
+        if (!isDragging) onClick(appointment);
+      }}
+      className={`cal-apt absolute left-[52px] right-2 rounded-lg border backdrop-blur-md px-3 py-1.5 text-left transition-transform ${colorClass} ${
+        isDragging
+          ? "scale-[1.04] z-50 shadow-lg shadow-gold/20 ring-1 ring-gold/30"
+          : "active:scale-[0.98]"
+      }`}
       style={{ top, height, minHeight: 28 }}
     >
       <p className="text-xs font-semibold truncate leading-tight">
