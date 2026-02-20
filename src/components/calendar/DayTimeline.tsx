@@ -231,10 +231,10 @@ export default function DayTimeline({
           return (
             <div key={hour} className="absolute left-0 right-0" style={{ top }}>
               <div className="flex items-start">
-                <span className="cal-timeline__label w-12 text-right pr-2 text-[11px] text-white/30 font-medium -mt-[7px] select-none">
+                <span className="cal-timeline__label w-12 text-right pr-2 text-[11px] text-muted-foreground/50 font-medium -mt-[7px] select-none">
                   {String(hour).padStart(2, "0")}:00
                 </span>
-                <div className="flex-1 border-t border-white/8" />
+                <div className="flex-1 border-t border-border/30" />
               </div>
             </div>
           );
@@ -246,7 +246,7 @@ export default function DayTimeline({
           return (
             <div
               key={`${hour}-half`}
-              className="absolute left-12 right-0 border-t border-white/4"
+              className="absolute left-12 right-0 border-t border-border/15"
               style={{ top }}
             />
           );

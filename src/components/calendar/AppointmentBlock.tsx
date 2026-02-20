@@ -23,9 +23,9 @@ interface AppointmentBlockProps {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-gold/20 border-gold/40 text-gold",
-  confirmed: "bg-emerald-500/20 border-emerald-500/40 text-emerald-300",
-  cancelled: "bg-red-500/20 border-red-500/40 text-red-300",
-  completed: "bg-white/10 border-white/20 text-white/50",
+  confirmed: "bg-emerald-500/20 border-emerald-500/40 text-emerald-700 dark:text-emerald-300",
+  cancelled: "bg-red-500/20 border-red-500/40 text-red-700 dark:text-red-300",
+  completed: "bg-muted/50 border-border text-muted-foreground",
 };
 
 export default function AppointmentBlock({
