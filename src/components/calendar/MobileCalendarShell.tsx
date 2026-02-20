@@ -24,6 +24,8 @@ export default function MobileCalendarShell() {
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [businessHours, setBusinessHours] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
 
   // Sheet states
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -35,15 +37,22 @@ export default function MobileCalendarShell() {
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
-  // Load services + employees once
+  // Load services, employees, business hours, schedules once
   useEffect(() => {
     const load = async () => {
-      const [svcRes, empRes] = await Promise.all([
+      const [svcRes, empRes, bhRes] = await Promise.all([
         supabase.from("services").select("id, name_sk, duration_minutes, price").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
         supabase.from("employees").select("id, display_name").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+        supabase.from("business_hours").select("day_of_week, mode, start_time, end_time").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
       ]);
+      const empIds = (empRes.data ?? []).map((e: any) => e.id);
+      const schRes = empIds.length > 0
+        ? await supabase.from("schedules").select("employee_id, day_of_week, start_time, end_time").in("employee_id", empIds)
+        : { data: [] };
       setServices(svcRes.data ?? []);
       setEmployees(empRes.data ?? []);
+      setBusinessHours(bhRes.data ?? []);
+      setSchedules(schRes.data ?? []);
     };
     load();
   }, []);
@@ -235,6 +244,8 @@ export default function MobileCalendarShell() {
               currentDate={currentDate}
               appointments={appointments}
               onDayClick={handleDayClick}
+              businessHours={businessHours}
+              schedules={schedules}
             />
           )}
           {view === "week" && (
