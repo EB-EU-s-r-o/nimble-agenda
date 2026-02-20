@@ -112,6 +112,9 @@ export default function DayTimeline({
       dragActive.current = true;
       justDragged.current = true;
 
+      // Haptic feedback
+      if (navigator.vibrate) navigator.vibrate(30);
+
       const start = new Date(apt.start_at);
       const end = new Date(apt.end_at);
       dragAptDuration.current =
