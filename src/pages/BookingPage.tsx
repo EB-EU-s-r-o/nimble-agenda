@@ -442,10 +442,12 @@ export default function BookingPage() {
                 <p className="text-sm font-medium text-foreground">
                   Dokonči registráciu a spravuj svoje rezervácie
                 </p>
-                <Button asChild className="w-full">
-                  <Link to={`/auth?mode=register&email=${encodeURIComponent(bookingResult.customer_email)}&name=${encodeURIComponent(bookingResult.customer_name)}&claim=${encodeURIComponent(bookingResult.claim_token)}`}>
-                    Dokonči registráciu
-                  </Link>
+                <Button className="w-full" onClick={() => {
+                  // Store claim token in sessionStorage instead of URL to prevent leakage
+                  sessionStorage.setItem("claim_token", bookingResult.claim_token);
+                  window.location.href = `/auth?mode=register&email=${encodeURIComponent(bookingResult.customer_email)}&name=${encodeURIComponent(bookingResult.customer_name)}`;
+                }}>
+                  Dokonči registráciu
                 </Button>
               </CardContent>
             </Card>

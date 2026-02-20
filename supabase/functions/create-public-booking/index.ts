@@ -7,6 +7,43 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// --- Input validation helpers ---
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+function validateInput(body: Record<string, unknown>): { error?: string } {
+  const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone } = body;
+
+  if (!business_id || !service_id || !employee_id || !start_at || !customer_name || !customer_email) {
+    return { error: "Chýbajúce povinné polia" };
+  }
+
+  if (typeof business_id !== "string" || !UUID_RE.test(business_id)) return { error: "Neplatné business_id" };
+  if (typeof service_id !== "string" || !UUID_RE.test(service_id)) return { error: "Neplatné service_id" };
+  if (typeof employee_id !== "string" || !UUID_RE.test(employee_id)) return { error: "Neplatné employee_id" };
+
+  if (typeof start_at !== "string" || !ISO_DATE_RE.test(start_at)) return { error: "Neplatný formát dátumu" };
+  const d = new Date(start_at);
+  if (isNaN(d.getTime())) return { error: "Neplatný dátum" };
+
+  if (typeof customer_name !== "string" || customer_name.trim().length < 2 || customer_name.length > 200) {
+    return { error: "Meno musí mať 2–200 znakov" };
+  }
+
+  if (typeof customer_email !== "string" || !EMAIL_RE.test(customer_email) || customer_email.length > 255) {
+    return { error: "Neplatný email" };
+  }
+
+  if (customer_phone !== undefined && customer_phone !== null && customer_phone !== "") {
+    if (typeof customer_phone !== "string" || customer_phone.length > 30) {
+      return { error: "Telefón max 30 znakov" };
+    }
+  }
+
+  return {};
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,13 +56,51 @@ serve(async (req) => {
     );
 
     const body = await req.json();
-    const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone } = body;
 
-    // Validate required fields
-    if (!business_id || !service_id || !employee_id || !start_at || !customer_name || !customer_email) {
+    // 0. Validate input
+    const validation = validateInput(body);
+    if (validation.error) {
       return new Response(
-        JSON.stringify({ error: "Chýbajúce povinné polia" }),
+        JSON.stringify({ error: validation.error }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const {
+      business_id,
+      service_id,
+      employee_id,
+      start_at,
+      customer_name,
+      customer_email,
+      customer_phone,
+    } = body as Record<string, string>;
+
+    const sanitizedName = customer_name.trim().slice(0, 200);
+    const sanitizedEmail = customer_email.trim().toLowerCase().slice(0, 255);
+    const sanitizedPhone = customer_phone ? String(customer_phone).trim().slice(0, 30) : null;
+
+    // 0b. Rate limit: max 5 bookings per email per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", business_id)
+      .gte("created_at", oneHourAgo)
+      .in("customer_id", 
+        // subquery: find customer ids with this email
+        (await supabase
+          .from("customers")
+          .select("id")
+          .eq("business_id", business_id)
+          .eq("email", sanitizedEmail)
+        ).data?.map((c: { id: string }) => c.id) ?? []
+      );
+
+    if ((recentCount ?? 0) >= 5) {
+      return new Response(
+        JSON.stringify({ error: "Príliš veľa rezervácií. Skúste neskôr." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -87,30 +162,30 @@ serve(async (req) => {
       .from("customers")
       .select("id")
       .eq("business_id", business_id)
-      .eq("email", customer_email)
+      .eq("email", sanitizedEmail)
       .maybeSingle();
 
     let customerId: string;
     if (existingCustomer) {
       customerId = existingCustomer.id;
-      // Update name/phone if changed
       await supabase
         .from("customers")
-        .update({ full_name: customer_name, phone: customer_phone || null })
+        .update({ full_name: sanitizedName, phone: sanitizedPhone })
         .eq("id", customerId);
     } else {
       const { data: newCustomer, error: custErr } = await supabase
         .from("customers")
         .insert({
           business_id,
-          full_name: customer_name,
-          email: customer_email,
-          phone: customer_phone || null,
+          full_name: sanitizedName,
+          email: sanitizedEmail,
+          phone: sanitizedPhone,
         })
         .select("id")
         .single();
 
       if (custErr || !newCustomer) {
+        console.error("Customer creation error:", custErr);
         return new Response(
           JSON.stringify({ error: "Chyba pri vytváraní zákazníka" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -135,6 +210,7 @@ serve(async (req) => {
       .single();
 
     if (apptErr || !appointment) {
+      console.error("Appointment creation error:", apptErr);
       return new Response(
         JSON.stringify({ error: "Chyba pri vytváraní rezervácie" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -148,19 +224,17 @@ serve(async (req) => {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    // Hash token for storage
     const encoder = new TextEncoder();
     const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(token));
     const tokenHash = Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    // Store claim (expires in 30 minutes)
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
     await supabase.from("booking_claims").insert({
       business_id,
       appointment_id: appointment.id,
-      email: customer_email,
+      email: sanitizedEmail,
       token_hash: tokenHash,
       expires_at: expiresAt.toISOString(),
     });
@@ -170,8 +244,8 @@ serve(async (req) => {
         success: true,
         appointment_id: appointment.id,
         claim_token: token,
-        customer_email,
-        customer_name,
+        customer_email: sanitizedEmail,
+        customer_name: sanitizedName,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
