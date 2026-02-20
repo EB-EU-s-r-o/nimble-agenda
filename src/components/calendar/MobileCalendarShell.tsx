@@ -135,6 +135,32 @@ export default function MobileCalendarShell() {
     loadAppointments();
   };
 
+  // Move appointment (drag-to-move)
+  const handleMoveAppointment = async (id: string, newStart: Date) => {
+    const apt = appointments.find((a) => a.id === id);
+    if (!apt) return;
+
+    const oldStart = new Date(apt.start_at);
+    const oldEnd = new Date(apt.end_at);
+    const duration = oldEnd.getTime() - oldStart.getTime();
+    const newEnd = new Date(newStart.getTime() + duration);
+
+    const { error } = await supabase
+      .from("appointments")
+      .update({
+        start_at: newStart.toISOString(),
+        end_at: newEnd.toISOString(),
+      })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Chyba pri presúvaní");
+    } else {
+      toast.success("Rezervácia presunutá");
+    }
+    loadAppointments();
+  };
+
   // Cancel appointment
   const handleCancel = async (id: string) => {
     await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id);
@@ -169,6 +195,7 @@ export default function MobileCalendarShell() {
         appointments={appointments}
         onTapSlot={handleTapSlot}
         onTapAppointment={handleTapApt}
+        onMoveAppointment={handleMoveAppointment}
       />
 
       <QuickBookingSheet
