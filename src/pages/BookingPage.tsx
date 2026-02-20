@@ -24,7 +24,7 @@ const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 const contactSchema = z.object({
   name: z.string().min(2, "Meno musí mať aspoň 2 znaky"),
   email: z.string().email("Neplatný email"),
-  phone: z.string().optional(),
+  phone: z.string().optional()
 });
 
 type Step = "service" | "employee" | "date" | "time" | "contact" | "confirm" | "done";
@@ -68,12 +68,12 @@ function DesktopBookingWizard() {
   useEffect(() => {
     const load = async () => {
       const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
-        supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
-        supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-        supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
-        supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
-        supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
-      ]);
+      supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
+      supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
+      supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+      supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
+      supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10))]
+      );
       setBusiness(bizRes.data);
       setServices(svcRes.data ?? []);
       setEmployees(empRes.data ?? []);
@@ -81,13 +81,13 @@ function DesktopBookingWizard() {
         day_of_week: h.day_of_week,
         mode: h.mode,
         start_time: h.start_time,
-        end_time: h.end_time,
+        end_time: h.end_time
       })));
       setDateOverrides((bdoRes.data ?? []).map((o: any) => ({
         override_date: o.override_date,
         mode: o.mode,
         start_time: o.start_time,
-        end_time: o.end_time,
+        end_time: o.end_time
       })));
 
       const empIds = (empRes.data ?? []).map((e: any) => e.id);
@@ -116,13 +116,13 @@ function DesktopBookingWizard() {
     const dayStart = startOfDay(selectedDate);
     const dayEnd = addDays(dayStart, 1);
 
-    const { data: existing } = await supabase
-      .from("appointments")
-      .select("start_at, end_at")
-      .eq("employee_id", selectedEmployee.id)
-      .gte("start_at", dayStart.toISOString())
-      .lt("start_at", dayEnd.toISOString())
-      .neq("status", "cancelled");
+    const { data: existing } = await supabase.
+    from("appointments").
+    select("start_at, end_at").
+    eq("employee_id", selectedEmployee.id).
+    gte("start_at", dayStart.toISOString()).
+    lt("start_at", dayEnd.toISOString()).
+    neq("status", "cancelled");
 
     const slots = generateSlots({
       date: selectedDate,
@@ -133,20 +133,20 @@ function DesktopBookingWizard() {
       dateOverrides: dateOverrides.length ? dateOverrides : undefined,
       employeeSchedules: schedules[selectedEmployee.id] ?? [],
       existingAppointments: (existing ?? []) as ExistingAppointment[],
-      leadTimeMinutes: business.lead_time_minutes ?? 60,
+      leadTimeMinutes: business.lead_time_minutes ?? 60
     });
 
     setAvailableSlots(slots);
     setLoadingSlots(false);
   }, [selectedDate, selectedEmployee, selectedService, business, schedules, businessHourEntries, dateOverrides]);
 
-  useEffect(() => { loadSlots(); }, [loadSlots]);
+  useEffect(() => {loadSlots();}, [loadSlots]);
 
   const handleSubmit = async () => {
     const result = contactSchema.safeParse(contact);
     if (!result.success) {
       const errs: Record<string, string> = {};
-      result.error.errors.forEach((e) => { if (e.path[0]) errs[e.path[0] as string] = e.message; });
+      result.error.errors.forEach((e) => {if (e.path[0]) errs[e.path[0] as string] = e.message;});
       setContactErrors(errs);
       return;
     }
@@ -162,8 +162,8 @@ function DesktopBookingWizard() {
           start_at: selectedSlot!.toISOString(),
           customer_name: contact.name,
           customer_email: contact.email,
-          customer_phone: contact.phone,
-        },
+          customer_phone: contact.phone
+        }
       });
 
       if (error || data?.error) {
@@ -193,9 +193,9 @@ function DesktopBookingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary to-background">
+    <div className="min-h-screen bg-gradient-to-br from-secondary to-background bg-[#050500]">
       {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-border backdrop-blur-sm sticky top-0 z-10 bg-black">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
           <LogoIcon size="sm" />
           <span className="font-semibold text-foreground">{business?.name ?? "Načítavam..."}</span>
@@ -206,56 +206,56 @@ function DesktopBookingWizard() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6">
+      <main className="max-w-lg mx-auto px-4 py-6 bg-black border-yellow-400">
         {/* Business info panel */}
-        {step === "service" && (
-          <div className="mb-6 min-h-[220px]">
-            {businessInfo ? (
-              <BusinessInfoPanel info={businessInfo} openStatus={openStatus} nextOpening={nextOpening} />
-            ) : (
-              <div className="space-y-4">
+        {step === "service" &&
+        <div className="mb-6 min-h-[220px]">
+            {businessInfo ?
+          <BusinessInfoPanel info={businessInfo} openStatus={openStatus} nextOpening={nextOpening} /> :
+
+          <div className="space-y-4">
                 <Skeleton className="h-6 w-32" />
                 <div className="rounded-lg border border-border bg-card p-3 space-y-2">
                   <Skeleton className="h-4 w-40" />
-                  {Array.from({ length: 7 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between">
+                  {Array.from({ length: 7 }).map((_, i) =>
+              <div key={i} className="flex items-center justify-between">
                       <Skeleton className="h-3 w-6" />
                       <Skeleton className="h-3 w-24" />
                     </div>
-                  ))}
+              )}
                 </div>
               </div>
-            )}
+          }
           </div>
-        )}
+        }
 
         {/* Progress */}
-        {step !== "done" && (
-          <div className="flex items-center gap-1 mb-6">
-            {(["service", "employee", "date", "time", "contact", "confirm"] as Step[]).map((s, i) => (
-              <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${
-                (["service", "employee", "date", "time", "contact", "confirm"] as Step[]).indexOf(step) >= i
-                  ? "bg-primary" : "bg-border"
-              }`} />
-            ))}
+        {step !== "done" &&
+        <div className="flex items-center gap-1 mb-6">
+            {(["service", "employee", "date", "time", "contact", "confirm"] as Step[]).map((s, i) =>
+          <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${
+          (["service", "employee", "date", "time", "contact", "confirm"] as Step[]).indexOf(step) >= i ?
+          "bg-primary" : "bg-border"}`
+          } />
+          )}
           </div>
-        )}
+        }
 
         {/* Back button */}
-        {step !== "service" && step !== "done" && (
-          <button onClick={goBack} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+        {step !== "service" && step !== "done" &&
+        <button onClick={goBack} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
             <ChevronLeft className="w-4 h-4" /> Späť
           </button>
-        )}
+        }
 
         {/* Step: Service */}
-        {step === "service" && (
-          <div className="space-y-4">
+        {step === "service" &&
+        <div className="space-y-4">
             <h2 className="text-xl font-bold text-foreground">Vyberte službu</h2>
             <div className="space-y-2">
-              {initialLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="p-4 rounded-xl border border-border bg-card">
+              {initialLoading ?
+            Array.from({ length: 3 }).map((_, i) =>
+            <div key={i} className="p-4 rounded-xl border border-border bg-card">
                     <div className="flex items-center justify-between">
                       <div className="space-y-2 flex-1">
                         <Skeleton className="h-5 w-40" />
@@ -265,45 +265,45 @@ function DesktopBookingWizard() {
                       <Skeleton className="h-7 w-12" />
                     </div>
                   </div>
-                ))
-              ) : (
-              services.map((svc) => (
-                <button
-                  key={svc.id}
-                  onClick={() => { setSelectedService(svc); setStep("employee"); }}
-                  className="w-full text-left p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center justify-between">
+            ) :
+
+            services.map((svc) =>
+            <button
+              key={svc.id}
+              onClick={() => {setSelectedService(svc);setStep("employee");}}
+              className="w-full text-left p-4 rounded-xl border border-border hover:border-primary/50 hover:shadow-sm transition-all bg-[#00030a]">
+
+                  <div className="flex items-center justify-between bg-black">
                     <div>
                       <p className="font-semibold text-foreground">{svc.name_sk}</p>
                       {svc.description_sk && <p className="text-xs text-muted-foreground mt-0.5">{svc.description_sk}</p>}
                       <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                         <Clock className="w-3 h-3" />
-                        <span>{svc.duration_minutes} min</span>
+                        <span className="text-gold">{svc.duration_minutes} min</span>
                       </div>
                     </div>
-                    {svc.price != null && (
-                      <span className="text-lg font-bold text-foreground">{svc.price}€</span>
-                    )}
+                    {svc.price != null &&
+                <span className="text-lg font-bold bg-[#0a0700] text-gold">{svc.price}€</span>
+                }
                   </div>
                 </button>
-              ))
-              )}
+            )
+            }
             </div>
           </div>
-        )}
+        }
 
         {/* Step: Employee */}
-        {step === "employee" && (
-          <div className="space-y-4">
+        {step === "employee" &&
+        <div className="space-y-4">
             <h2 className="text-xl font-bold text-foreground">Vyberte zamestnanca</h2>
             <div className="space-y-2">
-              {employees.map((emp) => (
-                <button
-                  key={emp.id}
-                  onClick={() => { setSelectedEmployee(emp); setSelectedDate(null); setSelectedSlot(null); setStep("date"); }}
-                  className="w-full text-left p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all"
-                >
+              {employees.map((emp) =>
+            <button
+              key={emp.id}
+              onClick={() => {setSelectedEmployee(emp);setSelectedDate(null);setSelectedSlot(null);setStep("date");}}
+              className="w-full text-left p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all">
+
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
                       <span className="text-secondary-foreground font-semibold text-sm">
@@ -318,140 +318,140 @@ function DesktopBookingWizard() {
                     </div>
                   </div>
                 </button>
-              ))}
+            )}
             </div>
           </div>
-        )}
+        }
 
         {/* Step: Date */}
-        {step === "date" && (
-          <div className="space-y-4">
+        {step === "date" &&
+        <div className="space-y-4">
             <h2 className="text-xl font-bold text-foreground">Vyberte dátum</h2>
             <div className="grid grid-cols-7 gap-1.5">
-              {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (
-                <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">{d}</div>
-              ))}
+              {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) =>
+            <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">{d}</div>
+            )}
               {calendarDays.map((day) => {
-                const available = selectedEmployee && isEmployeeAvailableOnDay(selectedEmployee.id, day);
-                const isPast = isBefore(day, today);
-                const isTooFar = isAfter(day, addDays(today, maxDays));
-                const disabled = isPast || isTooFar || !available;
-                const isSelected = selectedDate && isSameDay(day, selectedDate);
+              const available = selectedEmployee && isEmployeeAvailableOnDay(selectedEmployee.id, day);
+              const isPast = isBefore(day, today);
+              const isTooFar = isAfter(day, addDays(today, maxDays));
+              const disabled = isPast || isTooFar || !available;
+              const isSelected = selectedDate && isSameDay(day, selectedDate);
 
-                return (
-                  <button
-                    key={day.toISOString()}
-                    disabled={disabled}
-                    onClick={() => { setSelectedDate(day); setSelectedSlot(null); setStep("time"); }}
-                    className={`aspect-square rounded-lg text-sm font-medium transition-colors ${
-                      isSelected
-                        ? "bg-primary text-primary-foreground"
-                        : disabled
-                          ? "text-muted-foreground/30 cursor-not-allowed"
-                          : "text-foreground hover:bg-accent"
-                    }`}
-                  >
+              return (
+                <button
+                  key={day.toISOString()}
+                  disabled={disabled}
+                  onClick={() => {setSelectedDate(day);setSelectedSlot(null);setStep("time");}}
+                  className={`aspect-square rounded-lg text-sm font-medium transition-colors ${
+                  isSelected ?
+                  "bg-primary text-primary-foreground" :
+                  disabled ?
+                  "text-muted-foreground/30 cursor-not-allowed" :
+                  "text-foreground hover:bg-accent"}`
+                  }>
+
                     {format(day, "d")}
-                  </button>
-                );
-              })}
+                  </button>);
+
+            })}
             </div>
             <p className="text-xs text-muted-foreground text-center">
               {format(calendarDays[0], "LLLL yyyy", { locale: sk })}
             </p>
           </div>
-        )}
+        }
 
         {/* Step: Time */}
-        {step === "time" && (
-          <div className="space-y-4">
+        {step === "time" &&
+        <div className="space-y-4">
             <h2 className="text-xl font-bold text-foreground">
               Vyberte čas · {selectedDate && format(selectedDate, "d. MMMM", { locale: sk })}
             </h2>
-            {loadingSlots ? (
-              <div className="flex justify-center py-8">
+            {loadingSlots ?
+          <div className="flex justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : availableSlots.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              </div> :
+          availableSlots.length === 0 ?
+          <div className="text-center py-8 text-muted-foreground">
                 <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Žiadne dostupné termíny</p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={() => setStep("date")}>
                   Vybrať iný dátum
                 </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {availableSlots.map((slot) => (
-                  <button
-                    key={slot.toISOString()}
-                    onClick={() => { setSelectedSlot(slot); setStep("contact"); }}
-                    className={`py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                      selectedSlot && slot.getTime() === selectedSlot.getTime()
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border bg-card hover:border-primary/50 text-foreground"
-                    }`}
-                  >
+              </div> :
+
+          <div className="grid grid-cols-4 gap-2">
+                {availableSlots.map((slot) =>
+            <button
+              key={slot.toISOString()}
+              onClick={() => {setSelectedSlot(slot);setStep("contact");}}
+              className={`py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+              selectedSlot && slot.getTime() === selectedSlot.getTime() ?
+              "bg-primary text-primary-foreground border-primary" :
+              "border-border bg-card hover:border-primary/50 text-foreground"}`
+              }>
+
                     {format(slot, "HH:mm")}
                   </button>
-                ))}
-              </div>
             )}
+              </div>
+          }
           </div>
-        )}
+        }
 
         {/* Step: Contact */}
-        {step === "contact" && (
-          <div className="space-y-4">
+        {step === "contact" &&
+        <div className="space-y-4">
             <h2 className="text-xl font-bold text-foreground">Kontaktné údaje</h2>
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Meno a priezvisko *</Label>
                 <Input
-                  value={contact.name}
-                  onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))}
-                  placeholder="Jana Nováková"
-                />
+                value={contact.name}
+                onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))}
+                placeholder="Jana Nováková" />
+
                 {contactErrors.name && <p className="text-destructive text-xs">{contactErrors.name}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label>Email *</Label>
                 <Input
-                  type="email"
-                  value={contact.email}
-                  onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
-                  placeholder="jana@example.sk"
-                />
+                type="email"
+                value={contact.email}
+                onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
+                placeholder="jana@example.sk" />
+
                 {contactErrors.email && <p className="text-destructive text-xs">{contactErrors.email}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label>Telefón (voliteľný)</Label>
                 <Input
-                  value={contact.phone}
-                  onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
-                  placeholder="+421 900 000 000"
-                />
+                value={contact.phone}
+                onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
+                placeholder="+421 900 000 000" />
+
               </div>
             </div>
             <Button className="w-full" onClick={() => {
-              const result = contactSchema.safeParse(contact);
-              if (!result.success) {
-                const errs: Record<string, string> = {};
-                result.error.errors.forEach((e) => { if (e.path[0]) errs[e.path[0] as string] = e.message; });
-                setContactErrors(errs);
-                return;
-              }
-              setContactErrors({});
-              setStep("confirm");
-            }}>
+            const result = contactSchema.safeParse(contact);
+            if (!result.success) {
+              const errs: Record<string, string> = {};
+              result.error.errors.forEach((e) => {if (e.path[0]) errs[e.path[0] as string] = e.message;});
+              setContactErrors(errs);
+              return;
+            }
+            setContactErrors({});
+            setStep("confirm");
+          }}>
               Pokračovať
             </Button>
           </div>
-        )}
+        }
 
         {/* Step: Confirm */}
-        {step === "confirm" && (
-          <div className="space-y-4">
+        {step === "confirm" &&
+        <div className="space-y-4">
             <h2 className="text-xl font-bold text-foreground">Potvrdiť rezerváciu</h2>
             <Card className="border-border">
               <CardContent className="p-4 space-y-3">
@@ -484,11 +484,11 @@ function DesktopBookingWizard() {
               Potvrdiť rezerváciu
             </Button>
           </div>
-        )}
+        }
 
         {/* Step: Done */}
-        {step === "done" && bookingResult && (
-          <div className="text-center space-y-6 py-8">
+        {step === "done" && bookingResult &&
+        <div className="text-center space-y-6 py-8">
             <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto">
               <Check className="w-8 h-8 text-primary" />
             </div>
@@ -513,31 +513,31 @@ function DesktopBookingWizard() {
                   Dokonči registráciu a spravuj svoje rezervácie
                 </p>
                 <Button className="w-full" onClick={() => {
-                  sessionStorage.setItem("claim_token", bookingResult.claim_token);
-                  window.location.href = `/auth?mode=register&email=${encodeURIComponent(bookingResult.customer_email)}&name=${encodeURIComponent(bookingResult.customer_name)}`;
-                }}>
+                sessionStorage.setItem("claim_token", bookingResult.claim_token);
+                window.location.href = `/auth?mode=register&email=${encodeURIComponent(bookingResult.customer_email)}&name=${encodeURIComponent(bookingResult.customer_name)}`;
+              }}>
                   Dokonči registráciu
                 </Button>
               </CardContent>
             </Card>
 
             <Button
-              variant="outline"
-              onClick={() => {
-                setStep("service");
-                setSelectedService(null);
-                setSelectedEmployee(null);
-                setSelectedDate(null);
-                setSelectedSlot(null);
-                setContact({ name: "", email: "", phone: "" });
-                setBookingResult(null);
-              }}
-            >
+            variant="outline"
+            onClick={() => {
+              setStep("service");
+              setSelectedService(null);
+              setSelectedEmployee(null);
+              setSelectedDate(null);
+              setSelectedSlot(null);
+              setContact({ name: "", email: "", phone: "" });
+              setBookingResult(null);
+            }}>
+
               Nová rezervácia
             </Button>
           </div>
-        )}
+        }
       </main>
-    </div>
-  );
+    </div>);
+
 }
