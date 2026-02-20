@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateSlots, type BusinessHours, type EmployeeSchedule, type ExistingAppointment } from "@/lib/availability";
+import { generateSlots, type BusinessHours, type EmployeeSchedule, type ExistingAppointment, type BusinessHourEntry, type DateOverrideEntry } from "@/lib/availability";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,8 @@ import { format, addDays, startOfDay, isSameDay, isAfter, isBefore } from "date-
 import { sk } from "date-fns/locale";
 import { z } from "zod";
 import { Link } from "react-router-dom";
+import { useBusinessInfo } from "@/hooks/useBusinessInfo";
+import { BusinessInfoPanel } from "@/components/booking/BusinessInfoPanel";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 
@@ -28,6 +30,9 @@ export default function BookingPage() {
   const [business, setBusiness] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [businessHourEntries, setBusinessHourEntries] = useState<BusinessHourEntry[]>([]);
+  const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
+  const { info: businessInfo, openStatus, nextOpening } = useBusinessInfo(DEMO_BUSINESS_ID);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
 
   const [selectedService, setSelectedService] = useState<any>(null);
@@ -45,14 +50,28 @@ export default function BookingPage() {
   // Load initial data
   useEffect(() => {
     const load = async () => {
-      const [bizRes, svcRes, empRes] = await Promise.all([
+      const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
         supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
         supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
         supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+        supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
+        supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
       ]);
       setBusiness(bizRes.data);
       setServices(svcRes.data ?? []);
       setEmployees(empRes.data ?? []);
+      setBusinessHourEntries((bhRes.data ?? []).map((h: any) => ({
+        day_of_week: h.day_of_week,
+        mode: h.mode,
+        start_time: h.start_time,
+        end_time: h.end_time,
+      })));
+      setDateOverrides((bdoRes.data ?? []).map((o: any) => ({
+        override_date: o.override_date,
+        mode: o.mode,
+        start_time: o.start_time,
+        end_time: o.end_time,
+      })));
 
       // Load all schedules
       const empIds = (empRes.data ?? []).map((e: any) => e.id);
@@ -95,6 +114,8 @@ export default function BookingPage() {
       serviceDuration: selectedService.duration_minutes,
       serviceBuffer: selectedService.buffer_minutes ?? 0,
       openingHours: (business.opening_hours ?? {}) as BusinessHours,
+      businessHourEntries: businessHourEntries.length ? businessHourEntries : undefined,
+      dateOverrides: dateOverrides.length ? dateOverrides : undefined,
       employeeSchedules: schedules[selectedEmployee.id] ?? [],
       existingAppointments: (existing ?? []) as ExistingAppointment[],
       leadTimeMinutes: business.lead_time_minutes ?? 60,
@@ -102,7 +123,7 @@ export default function BookingPage() {
 
     setAvailableSlots(slots);
     setLoadingSlots(false);
-  }, [selectedDate, selectedEmployee, selectedService, business, schedules]);
+  }, [selectedDate, selectedEmployee, selectedService, business, schedules, businessHourEntries, dateOverrides]);
 
   useEffect(() => { loadSlots(); }, [loadSlots]);
 
@@ -173,6 +194,12 @@ export default function BookingPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
+        {/* Business info panel */}
+        {businessInfo && step === "service" && (
+          <div className="mb-6">
+            <BusinessInfoPanel info={businessInfo} openStatus={openStatus} nextOpening={nextOpening} />
+          </div>
+        )}
         {/* Progress */}
         {step !== "done" && (
           <div className="flex items-center gap-1 mb-6">
