@@ -15,6 +15,8 @@ import { z } from "zod";
 import { Link } from "react-router-dom";
 import { useBusinessInfo } from "@/hooks/useBusinessInfo";
 import { BusinessInfoPanel } from "@/components/booking/BusinessInfoPanel";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileCalendarShell from "@/components/calendar/MobileCalendarShell";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 
@@ -27,6 +29,18 @@ const contactSchema = z.object({
 type Step = "service" | "employee" | "date" | "time" | "contact" | "confirm" | "done";
 
 export default function BookingPage() {
+  const isMobile = useIsMobile();
+
+  // On mobile, render the calendar-first layout
+  if (isMobile) {
+    return <MobileCalendarShell />;
+  }
+
+  // Desktop: keep existing step-based wizard
+  return <DesktopBookingWizard />;
+}
+
+function DesktopBookingWizard() {
   const [step, setStep] = useState<Step>("service");
   const [business, setBusiness] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
@@ -75,7 +89,6 @@ export default function BookingPage() {
         end_time: o.end_time,
       })));
 
-      // Load all schedules
       const empIds = (empRes.data ?? []).map((e: any) => e.id);
       if (empIds.length) {
         const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
@@ -91,12 +104,10 @@ export default function BookingPage() {
     load();
   }, []);
 
-  // Generate available dates (next N days where employee works)
   const maxDays = business?.max_days_ahead ?? 60;
   const today = startOfDay(new Date());
   const calendarDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
 
-  // Load slots when date+employee+service selected
   const loadSlots = useCallback(async () => {
     if (!selectedDate || !selectedEmployee || !selectedService || !business) return;
     setLoadingSlots(true);
@@ -197,7 +208,7 @@ export default function BookingPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* Business info panel - reserve space with skeleton */}
+        {/* Business info panel */}
         {step === "service" && (
           <div className="mb-6 min-h-[220px]">
             {businessInfo ? (
@@ -218,6 +229,7 @@ export default function BookingPage() {
             )}
           </div>
         )}
+
         {/* Progress */}
         {step !== "done" && (
           <div className="flex items-center gap-1 mb-6">
@@ -496,14 +508,12 @@ export default function BookingPage() {
               </CardContent>
             </Card>
 
-            {/* Registration CTA */}
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="p-4 space-y-3">
                 <p className="text-sm font-medium text-foreground">
                   Dokonči registráciu a spravuj svoje rezervácie
                 </p>
                 <Button className="w-full" onClick={() => {
-                  // Store claim token in sessionStorage instead of URL to prevent leakage
                   sessionStorage.setItem("claim_token", bookingResult.claim_token);
                   window.location.href = `/auth?mode=register&email=${encodeURIComponent(bookingResult.customer_email)}&name=${encodeURIComponent(bookingResult.customer_name)}`;
                 }}>
