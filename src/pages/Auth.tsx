@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Loader2, Fingerprint } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { z } from "zod";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 
@@ -158,7 +159,10 @@ export default function AuthPage() {
   const isLoading = loading || webauthnLoading;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4 relative">
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
           <LogoIcon size="md" />

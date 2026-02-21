@@ -1,11 +1,15 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogoIcon } from "@/components/LogoIcon";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { MapPin, Phone, Mail } from "lucide-react";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4 relative">
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <div className="text-center space-y-6 max-w-md">
         <div className="flex items-center justify-center gap-3">
           <LogoIcon size="lg" />
