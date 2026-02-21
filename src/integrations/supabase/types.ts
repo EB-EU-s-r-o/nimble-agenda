@@ -364,6 +364,7 @@ export type Database = {
           id: string
           is_active: boolean
           phone: string | null
+          photo_url: string | null
           profile_id: string | null
           updated_at: string
         }
@@ -375,6 +376,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           phone?: string | null
+          photo_url?: string | null
           profile_id?: string | null
           updated_at?: string
         }
@@ -386,6 +388,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           phone?: string | null
+          photo_url?: string | null
           profile_id?: string | null
           updated_at?: string
         }
@@ -590,6 +593,7 @@ export type Database = {
         Row: {
           buffer_minutes: number
           business_id: string
+          category: string | null
           created_at: string
           description_sk: string | null
           duration_minutes: number
@@ -597,11 +601,13 @@ export type Database = {
           is_active: boolean
           name_sk: string
           price: number | null
+          subcategory: string | null
           updated_at: string
         }
         Insert: {
           buffer_minutes?: number
           business_id: string
+          category?: string | null
           created_at?: string
           description_sk?: string | null
           duration_minutes?: number
@@ -609,11 +615,13 @@ export type Database = {
           is_active?: boolean
           name_sk: string
           price?: number | null
+          subcategory?: string | null
           updated_at?: string
         }
         Update: {
           buffer_minutes?: number
           business_id?: string
+          category?: string | null
           created_at?: string
           description_sk?: string | null
           duration_minutes?: number
@@ -621,6 +629,7 @@ export type Database = {
           is_active?: boolean
           name_sk?: string
           price?: number | null
+          subcategory?: string | null
           updated_at?: string
         }
         Relationships: [

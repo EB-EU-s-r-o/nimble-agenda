@@ -1,93 +1,105 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateSlots, type BusinessHours, type EmployeeSchedule, type ExistingAppointment, type BusinessHourEntry, type DateOverrideEntry } from "@/lib/availability";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Loader2, Check, Calendar, Clock, User } from "lucide-react";
-import { LogoIcon } from "@/components/LogoIcon";
-import { format, addDays, startOfDay, isSameDay, isAfter, isBefore } from "date-fns";
+import { format, addDays, startOfDay, isSameDay, isAfter, isBefore, getDaysInMonth, getDay, startOfMonth } from "date-fns";
 import { sk } from "date-fns/locale";
 import { z } from "zod";
-import { Link } from "react-router-dom";
-import { useBusinessInfo } from "@/hooks/useBusinessInfo";
-import { BusinessInfoPanel } from "@/components/booking/BusinessInfoPanel";
-import { useIsMobile } from "@/hooks/use-mobile";
-import MobileCalendarShell from "@/components/calendar/MobileCalendarShell";
+import { useTheme } from "next-themes";
+import { User, Mail, Phone, PenLine, ChevronLeft, ChevronRight, Star, Check, Moon, Sun, Loader2 } from "lucide-react";
+import miskaImg from "@/assets/employee-miska.jpeg";
+import matoImg from "@/assets/employee-mato.jpg";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 
+// Map employee IDs to local photos
+const EMPLOYEE_PHOTOS: Record<string, string> = {
+  "c1000000-0000-0000-0000-000000000001": miskaImg,
+  "c1000000-0000-0000-0000-000000000002": matoImg,
+};
+
 const contactSchema = z.object({
-  name: z.string().min(2, "Meno musí mať aspoň 2 znaky"),
+  meno: z.string().min(2, "Meno musí mať aspoň 2 znaky"),
+  priezvisko: z.string().min(2, "Priezvisko musí mať aspoň 2 znaky"),
   email: z.string().email("Neplatný email"),
-  phone: z.string().optional()
+  phone: z.string().optional(),
 });
 
-type Step = "service" | "employee" | "date" | "time" | "contact" | "confirm" | "done";
-
-export default function BookingPage() {
-  const isMobile = useIsMobile();
-
-  // On mobile, render the calendar-first layout
-  if (isMobile) {
-    return <MobileCalendarShell />;
-  }
-
-  // Desktop: keep existing step-based wizard
-  return <DesktopBookingWizard />;
+interface ServiceRow {
+  id: string;
+  name_sk: string;
+  description_sk: string | null;
+  price: number | null;
+  duration_minutes: number;
+  buffer_minutes: number;
+  is_active: boolean;
+  business_id: string;
+  category: string | null;
+  subcategory: string | null;
 }
 
-function DesktopBookingWizard() {
-  const [step, setStep] = useState<Step>("service");
+interface EmployeeRow {
+  id: string;
+  display_name: string;
+  email: string | null;
+  phone: string | null;
+  is_active: boolean;
+  business_id: string;
+  photo_url: string | null;
+}
+
+export default function BookingPage() {
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+
+  // Data states
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [business, setBusiness] = useState<any>(null);
-  const [services, setServices] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
   const [businessHourEntries, setBusinessHourEntries] = useState<BusinessHourEntry[]>([]);
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
-  const { info: businessInfo, openStatus, nextOpening } = useBusinessInfo(DEMO_BUSINESS_ID);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
 
-  const [selectedService, setSelectedService] = useState<any>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
-  const [availableSlots, setAvailableSlots] = useState<Date[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-
-  const [contact, setContact] = useState({ name: "", email: "", phone: "" });
+  // Booking states
+  const [category, setCategory] = useState<"damske" | "panske">("damske");
+  const [subcategory, setSubcategory] = useState<string | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [formData, setFormData] = useState({
+    meno: "", priezvisko: "", email: "", phone: "", note: "",
+    marketing: false, terms: false, all: false,
+  });
   const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [bookingDone, setBookingDone] = useState(false);
   const [bookingResult, setBookingResult] = useState<any>(null);
+
+  // Availability
+  const [availableSlots, setAvailableSlots] = useState<Date[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Load initial data
   useEffect(() => {
     const load = async () => {
       const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
-      supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
-      supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-      supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
-      supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
-      supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10))]
-      );
+        supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
+        supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
+        supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+        supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
+        supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
+      ]);
       setBusiness(bizRes.data);
-      setServices(svcRes.data ?? []);
-      setEmployees(empRes.data ?? []);
+      setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
+      setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
       setBusinessHourEntries((bhRes.data ?? []).map((h: any) => ({
-        day_of_week: h.day_of_week,
-        mode: h.mode,
-        start_time: h.start_time,
-        end_time: h.end_time
+        day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
       })));
       setDateOverrides((bdoRes.data ?? []).map((o: any) => ({
-        override_date: o.override_date,
-        mode: o.mode,
-        start_time: o.start_time,
-        end_time: o.end_time
+        override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
       })));
 
       const empIds = (empRes.data ?? []).map((e: any) => e.id);
@@ -105,65 +117,137 @@ function DesktopBookingWizard() {
     load();
   }, []);
 
-  const maxDays = business?.max_days_ahead ?? 60;
+  // Derived: grouped subcategories
+  const subcategories = useMemo(() => {
+    const cats = services
+      .filter((s) => s.category === category && s.subcategory)
+      .map((s) => s.subcategory!);
+    return [...new Set(cats)].sort();
+  }, [services, category]);
+
+  // Derived: filtered services for selected subcategory
+  const filteredServices = useMemo(() => {
+    if (!subcategory) return [];
+    return services.filter((s) => s.category === category && s.subcategory === subcategory);
+  }, [services, category, subcategory]);
+
+  const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
+  const selectedEmployee = employees.find((e) => e.id === selectedWorkerId) ?? null;
+
+  // Calendar helpers
   const today = startOfDay(new Date());
-  const calendarDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
+  const maxDays = business?.max_days_ahead ?? 60;
+  const monthStart = startOfMonth(calendarMonth);
+  const daysInMonth = getDaysInMonth(calendarMonth);
+  const firstDayOffset = (getDay(monthStart) + 6) % 7; // Monday-first
 
-  const loadSlots = useCallback(async () => {
-    if (!selectedDate || !selectedEmployee || !selectedService || !business) return;
-    setLoadingSlots(true);
+  // Build actual Date for selected calendar day
+  const selectedFullDate = useMemo(() => {
+    if (!selectedDate) return null;
+    return new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), selectedDate);
+  }, [selectedDate, calendarMonth]);
 
-    const dayStart = startOfDay(selectedDate);
-    const dayEnd = addDays(dayStart, 1);
+  // Check if employee available on a day
+  const isEmployeeAvailableOnDay = useCallback((empId: string, date: Date) => {
+    const dayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][date.getDay()];
+    return (schedules[empId] ?? []).some((s) => s.day_of_week === dayName);
+  }, [schedules]);
 
-    const { data: existing } = await supabase.
-    from("appointments").
-    select("start_at, end_at").
-    eq("employee_id", selectedEmployee.id).
-    gte("start_at", dayStart.toISOString()).
-    lt("start_at", dayEnd.toISOString()).
-    neq("status", "cancelled");
+  // Load slots when date selected
+  useEffect(() => {
+    if (!selectedFullDate || !selectedEmployee || !selectedService || !business) {
+      setAvailableSlots([]);
+      return;
+    }
+    const loadSlots = async () => {
+      setLoadingSlots(true);
+      const dayStart = startOfDay(selectedFullDate);
+      const dayEnd = addDays(dayStart, 1);
 
-    const slots = generateSlots({
-      date: selectedDate,
-      serviceDuration: selectedService.duration_minutes,
-      serviceBuffer: selectedService.buffer_minutes ?? 0,
-      openingHours: (business.opening_hours ?? {}) as BusinessHours,
-      businessHourEntries: businessHourEntries.length ? businessHourEntries : undefined,
-      dateOverrides: dateOverrides.length ? dateOverrides : undefined,
-      employeeSchedules: schedules[selectedEmployee.id] ?? [],
-      existingAppointments: (existing ?? []) as ExistingAppointment[],
-      leadTimeMinutes: business.lead_time_minutes ?? 60
+      const { data: existing } = await supabase
+        .from("appointments")
+        .select("start_at, end_at")
+        .eq("employee_id", selectedEmployee.id)
+        .gte("start_at", dayStart.toISOString())
+        .lt("start_at", dayEnd.toISOString())
+        .neq("status", "cancelled");
+
+      const slots = generateSlots({
+        date: selectedFullDate,
+        serviceDuration: selectedService.duration_minutes,
+        serviceBuffer: selectedService.buffer_minutes ?? 0,
+        openingHours: (business.opening_hours ?? {}) as BusinessHours,
+        businessHourEntries: businessHourEntries.length ? businessHourEntries : undefined,
+        dateOverrides: dateOverrides.length ? dateOverrides : undefined,
+        employeeSchedules: schedules[selectedEmployee.id] ?? [],
+        existingAppointments: (existing ?? []) as ExistingAppointment[],
+        leadTimeMinutes: business.lead_time_minutes ?? 60,
+      });
+
+      setAvailableSlots(slots);
+      setLoadingSlots(false);
+    };
+    loadSlots();
+  }, [selectedFullDate, selectedEmployee, selectedService, business, schedules, businessHourEntries, dateOverrides]);
+
+  // Group available slots
+  const timeGroups = useMemo(() => {
+    const dopoludnia: string[] = [];
+    const popoludni: string[] = [];
+    availableSlots.forEach((slot) => {
+      const t = format(slot, "HH:mm");
+      if (slot.getHours() < 12) dopoludnia.push(t);
+      else popoludni.push(t);
     });
+    return { dopoludnia, popoludni };
+  }, [availableSlots]);
 
-    setAvailableSlots(slots);
-    setLoadingSlots(false);
-  }, [selectedDate, selectedEmployee, selectedService, business, schedules, businessHourEntries, dateOverrides]);
+  // Consent handlers
+  const handleCheckAll = () => {
+    const newValue = !formData.all;
+    setFormData({ ...formData, all: newValue, marketing: newValue, terms: newValue });
+  };
+  const handleConsentChange = (field: "marketing" | "terms") => {
+    const newData = { ...formData, [field]: !formData[field] };
+    newData.all = newData.marketing && newData.terms;
+    setFormData(newData);
+  };
 
-  useEffect(() => {loadSlots();}, [loadSlots]);
-
+  // Submit booking
   const handleSubmit = async () => {
-    const result = contactSchema.safeParse(contact);
+    const result = contactSchema.safeParse(formData);
     if (!result.success) {
       const errs: Record<string, string> = {};
-      result.error.errors.forEach((e) => {if (e.path[0]) errs[e.path[0] as string] = e.message;});
+      result.error.errors.forEach((e) => { if (e.path[0]) errs[e.path[0] as string] = e.message; });
       setContactErrors(errs);
+      return;
+    }
+    if (!formData.terms) {
+      toast.error("Musíte súhlasiť s obchodnými podmienkami");
       return;
     }
     setContactErrors({});
     setSubmitting(true);
 
+    // Find the actual slot Date
+    const slotDate = availableSlots.find((s) => format(s, "HH:mm") === selectedTime);
+    if (!slotDate) {
+      toast.error("Vybraný čas už nie je dostupný");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("create-public-booking", {
         body: {
           business_id: DEMO_BUSINESS_ID,
-          service_id: selectedService.id,
-          employee_id: selectedEmployee.id,
-          start_at: selectedSlot!.toISOString(),
-          customer_name: contact.name,
-          customer_email: contact.email,
-          customer_phone: contact.phone
-        }
+          service_id: selectedServiceId,
+          employee_id: selectedWorkerId,
+          start_at: slotDate.toISOString(),
+          customer_name: `${formData.meno} ${formData.priezvisko}`.trim(),
+          customer_email: formData.email,
+          customer_phone: formData.phone || undefined,
+        },
       });
 
       if (error || data?.error) {
@@ -173,371 +257,472 @@ function DesktopBookingWizard() {
       }
 
       setBookingResult(data);
-      setStep("done");
+      setBookingDone(true);
+      toast.success("Rezervácia úspešne vytvorená!");
     } catch {
       toast.error("Chyba pri komunikácii so serverom");
     }
     setSubmitting(false);
   };
 
-  const goBack = () => {
-    const order: Step[] = ["service", "employee", "date", "time", "contact", "confirm"];
-    const idx = order.indexOf(step);
-    if (idx > 0) setStep(order[idx - 1]);
-  };
+  // UI helpers
+  const GoldText = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
+    <span className={`text-primary ${className}`}>{children}</span>
+  );
 
-  const isEmployeeAvailableOnDay = (empId: string, date: Date) => {
-    const dayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][date.getDay()];
-    const empSchedules = schedules[empId] ?? [];
-    return empSchedules.some((s) => s.day_of_week === dayName);
-  };
+  const StepHeader = ({ num, title, extra }: { num: string; title: string; extra?: React.ReactNode }) => (
+    <div className="flex items-center justify-between mt-8 mb-4">
+      <div className="flex items-center gap-4">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-primary text-primary-foreground dark:text-background">
+          {num}
+        </div>
+        <h2 className="text-xl font-medium tracking-wide text-foreground">{title}</h2>
+      </div>
+      {extra && <div>{extra}</div>}
+    </div>
+  );
+
+  const RadioIcon = ({ selected }: { selected: boolean }) => (
+    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+      selected ? "border-primary" : "border-muted-foreground/40"
+    }`}>
+      {selected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+    </div>
+  );
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (bookingDone && bookingResult) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-50 px-4 py-3 flex items-center justify-between bg-background/90 border-b border-border backdrop-blur-sm">
+          <div className="flex flex-col">
+            <span className="text-lg font-bold tracking-widest uppercase font-serif text-foreground">
+              PAPI <GoldText>HAIR</GoldText> DESIGN
+            </span>
+          </div>
+        </header>
+        <div className="max-w-md mx-auto px-4 py-12 text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+            <Check className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Rezervácia potvrdená!</h2>
+          <p className="text-muted-foreground text-sm">
+            Vaša rezervácia bola úspešne vytvorená. Potvrdenie vám príde na email.
+          </p>
+          <div className="rounded-2xl border border-border bg-card p-4 text-left space-y-2 text-sm">
+            <p><strong className="text-foreground">Služba:</strong> <span className="text-muted-foreground">{selectedService?.name_sk}</span></p>
+            <p><strong className="text-foreground">Zamestnanec:</strong> <span className="text-muted-foreground">{selectedEmployee?.display_name}</span></p>
+            <p><strong className="text-foreground">Dátum:</strong> <span className="text-muted-foreground">{selectedFullDate && format(selectedFullDate, "d. MMMM yyyy", { locale: sk })}</span></p>
+            <p><strong className="text-foreground">Čas:</strong> <span className="text-muted-foreground">{selectedTime}</span></p>
+          </div>
+          <button
+            onClick={() => {
+              sessionStorage.setItem("claim_token", bookingResult.claim_token);
+              window.location.href = `/auth?mode=register&email=${encodeURIComponent(bookingResult.customer_email)}&name=${encodeURIComponent(bookingResult.customer_name)}`;
+            }}
+            className="w-full font-bold py-4 rounded-full text-lg bg-primary text-primary-foreground dark:text-background hover:bg-primary/90 transition-all"
+          >
+            Dokonči registráciu
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-sm text-primary hover:underline"
+          >
+            Nová rezervácia
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary to-background bg-[#050500]">
+    <div className="min-h-screen font-sans pb-24 max-w-md mx-auto shadow-2xl relative overflow-hidden transition-colors duration-300 bg-background text-foreground">
       {/* Header */}
-      <header className="border-b border-border backdrop-blur-sm sticky top-0 z-10 bg-black">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <LogoIcon size="sm" />
-          <span className="font-semibold text-foreground">{business?.name ?? "Načítavam..."}</span>
-          <div className="flex-1" />
-          <Link to="/auth" className="text-xs text-muted-foreground hover:text-primary">
-            Prihlásiť sa
-          </Link>
+      <header className="sticky top-0 z-50 px-4 py-3 flex items-center justify-between bg-background/90 border-b border-border backdrop-blur-sm">
+        <div className="flex flex-col">
+          <span className="text-lg font-bold tracking-widest uppercase font-serif">
+            PAPI <GoldText>HAIR</GoldText> DESIGN
+          </span>
+          <span className="text-xs text-muted-foreground">papihairdesign.sk</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className="p-2 rounded-full hover:bg-accent transition-colors"
+          >
+            {isDark ? <Sun size={20} className="text-primary" /> : <Moon size={20} className="text-foreground" />}
+          </button>
+          <div className="w-6 h-6 rounded-full overflow-hidden border border-border">
+            <div className="w-full h-1/3 bg-white" />
+            <div className="w-full h-1/3 bg-blue-600" />
+            <div className="w-full h-1/3 bg-red-600" />
+          </div>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 bg-black border-yellow-400">
-        {/* Business info panel */}
-        {step === "service" &&
-        <div className="mb-6 min-h-[220px]">
-            {businessInfo ?
-          <BusinessInfoPanel info={businessInfo} openStatus={openStatus} nextOpening={nextOpening} /> :
+      <div className="px-4">
+        {/* Step 1: Kategória */}
+        <StepHeader num="1" title="Vyberte kategóriu" extra={
+          <div className="flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium border border-primary text-primary">
+            4.9 <Star size={14} className="fill-primary" />
+          </div>
+        } />
 
-          <div className="space-y-4">
-                <Skeleton className="h-6 w-32" />
-                <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-                  <Skeleton className="h-4 w-40" />
-                  {Array.from({ length: 7 }).map((_, i) =>
-              <div key={i} className="flex items-center justify-between">
-                      <Skeleton className="h-3 w-6" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-              )}
+        <div className="flex flex-col gap-3">
+          {(["damske", "panske"] as const).map((cat) => (
+            <button
+              key={cat}
+              onClick={() => { setCategory(cat); setSubcategory(null); setSelectedServiceId(null); setSelectedWorkerId(null); setSelectedDate(null); setSelectedTime(null); }}
+              className={`w-full py-3.5 rounded-full font-medium text-lg transition-all ${
+                category === cat
+                  ? "bg-primary text-primary-foreground dark:text-background shadow-lg shadow-primary/20"
+                  : "bg-card text-muted-foreground border border-border"
+              }`}
+            >
+              {cat === "damske" ? "Dámske Služby" : "Pánske Služby"}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3">
+          {subcategories.map((sub) => (
+            <button
+              key={sub}
+              onClick={() => { setSubcategory(sub); setSelectedServiceId(null); }}
+              className={`w-full py-3.5 rounded-full border transition-all duration-200 text-sm font-medium uppercase tracking-wider ${
+                subcategory === sub
+                  ? "border-primary bg-card text-primary"
+                  : "border-border text-muted-foreground bg-card hover:border-muted-foreground/50"
+              }`}
+            >
+              {sub}
+            </button>
+          ))}
+        </div>
+
+        {/* Step 2: Služba */}
+        {subcategory && filteredServices.length > 0 && (
+          <div className="animate-fade-in">
+            <StepHeader num="2" title="Vyberte službu" />
+            <div className="flex flex-col gap-3">
+              {filteredServices.map((srv) => (
+                <div
+                  key={srv.id}
+                  onClick={() => setSelectedServiceId(srv.id)}
+                  className={`border rounded-[2rem] p-4 flex items-center gap-4 cursor-pointer transition-all duration-200 ${
+                    selectedServiceId === srv.id
+                      ? "border-primary bg-card"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <RadioIcon selected={selectedServiceId === srv.id} />
+                  <div className="flex flex-col flex-1">
+                    <span className="font-bold text-sm text-foreground">{srv.name_sk}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {srv.duration_minutes} min
+                      {srv.price != null && (
+                        <> – <GoldText className="font-medium">{srv.price} €</GoldText></>
+                      )}
+                    </span>
+                  </div>
                 </div>
-              </div>
-          }
-          </div>
-        }
-
-        {/* Progress */}
-        {step !== "done" &&
-        <div className="flex items-center gap-1 mb-6">
-            {(["service", "employee", "date", "time", "contact", "confirm"] as Step[]).map((s, i) =>
-          <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${
-          (["service", "employee", "date", "time", "contact", "confirm"] as Step[]).indexOf(step) >= i ?
-          "bg-primary" : "bg-border"}`
-          } />
-          )}
-          </div>
-        }
-
-        {/* Back button */}
-        {step !== "service" && step !== "done" &&
-        <button onClick={goBack} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
-            <ChevronLeft className="w-4 h-4" /> Späť
-          </button>
-        }
-
-        {/* Step: Service */}
-        {step === "service" &&
-        <div className="space-y-4">
-            <h2 className="text-xl font-bold text-foreground">Vyberte službu</h2>
-            <div className="space-y-2">
-              {initialLoading ?
-            Array.from({ length: 3 }).map((_, i) =>
-            <div key={i} className="p-4 rounded-xl border border-border bg-card">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2 flex-1">
-                        <Skeleton className="h-5 w-40" />
-                        <Skeleton className="h-3 w-56" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
-                      <Skeleton className="h-7 w-12" />
-                    </div>
-                  </div>
-            ) :
-
-            services.map((svc) =>
-            <button
-              key={svc.id}
-              onClick={() => {setSelectedService(svc);setStep("employee");}}
-              className="w-full text-left p-4 rounded-xl border border-border hover:border-primary/50 hover:shadow-sm transition-all bg-[#00030a]">
-
-                  <div className="flex items-center justify-between bg-black">
-                    <div>
-                      <p className="font-semibold text-foreground">{svc.name_sk}</p>
-                      {svc.description_sk && <p className="text-xs text-muted-foreground mt-0.5">{svc.description_sk}</p>}
-                      <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        <span className="text-gold">{svc.duration_minutes} min</span>
-                      </div>
-                    </div>
-                    {svc.price != null &&
-                <span className="text-lg font-bold bg-[#0a0700] text-gold">{svc.price}€</span>
-                }
-                  </div>
-                </button>
-            )
-            }
+              ))}
             </div>
           </div>
-        }
+        )}
 
-        {/* Step: Employee */}
-        {step === "employee" &&
-        <div className="space-y-4">
-            <h2 className="text-xl font-bold text-foreground">Vyberte zamestnanca</h2>
-            <div className="space-y-2">
-              {employees.map((emp) =>
-            <button
-              key={emp.id}
-              onClick={() => {setSelectedEmployee(emp);setSelectedDate(null);setSelectedSlot(null);setStep("date");}}
-              className="w-full text-left p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-sm transition-all">
-
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                      <span className="text-secondary-foreground font-semibold text-sm">
-                        {emp.display_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
-                      </span>
+        {/* Step 3: Pracovník */}
+        {selectedServiceId && (
+          <div className="animate-fade-in">
+            <StepHeader num="3" title="Vyberte pracovníka" />
+            <div className="flex flex-col gap-4">
+              {employees.map((w) => (
+                <div
+                  key={w.id}
+                  onClick={() => { setSelectedWorkerId(w.id); setSelectedDate(null); setSelectedTime(null); }}
+                  className={`border rounded-[2rem] p-2 flex items-center gap-4 cursor-pointer transition-all duration-200 ${
+                    selectedWorkerId === w.id
+                      ? "border-primary bg-card"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <div className="pl-2"><RadioIcon selected={selectedWorkerId === w.id} /></div>
+                  <div className="flex w-full h-24 rounded-2xl overflow-hidden border border-primary/30">
+                    <div className="w-1/3 h-full relative">
+                      <img
+                        src={EMPLOYEE_PHOTOS[w.id] || w.photo_url || ""}
+                        alt={w.display_name}
+                        className="object-cover w-full h-full"
+                      />
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{emp.display_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(schedules[emp.id] ?? []).length} pracovných dní
-                      </p>
+                    <div className="w-2/3 flex items-center justify-center bg-background dark:bg-card">
+                      <span className="font-bold text-lg tracking-wide text-primary">{w.display_name}</span>
                     </div>
                   </div>
-                </button>
-            )}
+                </div>
+              ))}
             </div>
           </div>
-        }
+        )}
 
-        {/* Step: Date */}
-        {step === "date" &&
-        <div className="space-y-4">
-            <h2 className="text-xl font-bold text-foreground">Vyberte dátum</h2>
-            <div className="grid grid-cols-7 gap-1.5">
-              {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) =>
-            <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">{d}</div>
-            )}
-              {calendarDays.map((day) => {
-              const available = selectedEmployee && isEmployeeAvailableOnDay(selectedEmployee.id, day);
-              const isPast = isBefore(day, today);
-              const isTooFar = isAfter(day, addDays(today, maxDays));
-              const disabled = isPast || isTooFar || !available;
-              const isSelected = selectedDate && isSameDay(day, selectedDate);
-
-              return (
-                <button
-                  key={day.toISOString()}
-                  disabled={disabled}
-                  onClick={() => {setSelectedDate(day);setSelectedSlot(null);setStep("time");}}
-                  className={`aspect-square rounded-lg text-sm font-medium transition-colors ${
-                  isSelected ?
-                  "bg-primary text-primary-foreground" :
-                  disabled ?
-                  "text-muted-foreground/30 cursor-not-allowed" :
-                  "text-foreground hover:bg-accent"}`
-                  }>
-
-                    {format(day, "d")}
-                  </button>);
-
-            })}
-            </div>
-            <p className="text-xs text-muted-foreground text-center">
-              {format(calendarDays[0], "LLLL yyyy", { locale: sk })}
-            </p>
-          </div>
-        }
-
-        {/* Step: Time */}
-        {step === "time" &&
-        <div className="space-y-4">
-            <h2 className="text-xl font-bold text-foreground">
-              Vyberte čas · {selectedDate && format(selectedDate, "d. MMMM", { locale: sk })}
-            </h2>
-            {loadingSlots ?
-          <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div> :
-          availableSlots.length === 0 ?
-          <div className="text-center py-8 text-muted-foreground">
-                <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Žiadne dostupné termíny</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => setStep("date")}>
-                  Vybrať iný dátum
-                </Button>
-              </div> :
-
-          <div className="grid grid-cols-4 gap-2">
-                {availableSlots.map((slot) =>
-            <button
-              key={slot.toISOString()}
-              onClick={() => {setSelectedSlot(slot);setStep("contact");}}
-              className={`py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-              selectedSlot && slot.getTime() === selectedSlot.getTime() ?
-              "bg-primary text-primary-foreground border-primary" :
-              "border-border bg-card hover:border-primary/50 text-foreground"}`
-              }>
-
-                    {format(slot, "HH:mm")}
+        {/* Step 4: Dátum */}
+        {selectedWorkerId && (
+          <div className="animate-fade-in">
+            <StepHeader num="4" title="Vyberte dátum" />
+            <div className="rounded-xl p-4 border border-border bg-card">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-lg ml-2 text-foreground">
+                  {format(calendarMonth, "LLLL yyyy", { locale: sk })}
+                </h3>
+                <div className="flex rounded-full overflow-hidden border border-border">
+                  <button
+                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                    className="p-2 px-4 bg-card text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ChevronLeft size={20} />
                   </button>
+                  <button
+                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                    className="p-2 px-4 bg-primary text-primary-foreground dark:text-background hover:bg-primary/80 transition-colors"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-7 gap-y-4 text-center mb-2">
+                {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (
+                  <div key={d} className="font-medium text-sm text-muted-foreground">{d}</div>
+                ))}
+
+                {[...Array(firstDayOffset)].map((_, i) => <div key={`empty-${i}`} className="py-1" />)}
+                {[...Array(daysInMonth)].map((_, i) => {
+                  const day = i + 1;
+                  const dayDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+                  const isPast = isBefore(dayDate, today);
+                  const isTooFar = isAfter(dayDate, addDays(today, maxDays));
+                  const empAvailable = selectedWorkerId ? isEmployeeAvailableOnDay(selectedWorkerId, dayDate) : false;
+                  const disabled = isPast || isTooFar || !empAvailable;
+                  const isSelected = selectedDate === day && isSameDay(dayDate, selectedFullDate ?? new Date(0));
+                  const isToday = isSameDay(dayDate, today);
+
+                  return (
+                    <div key={day} className="flex justify-center">
+                      <button
+                        onClick={() => { if (!disabled) { setSelectedDate(day); setSelectedTime(null); } }}
+                        disabled={disabled}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground dark:text-background font-bold shadow-md"
+                            : isToday
+                              ? "border border-muted-foreground/40 text-foreground"
+                              : isPast || disabled
+                                ? "text-muted-foreground/20 cursor-not-allowed"
+                                : "text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Čas */}
+        {selectedDate && (
+          <div className="animate-fade-in">
+            <StepHeader num="5" title="Vyberte čas" />
+            {loadingSlots ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : availableSlots.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">Žiadne dostupné termíny v tento deň</p>
+            ) : (
+              <>
+                {timeGroups.dopoludnia.length > 0 && (
+                  <div className="mb-8">
+                    <h4 className="text-sm font-bold uppercase tracking-wider mb-4 text-muted-foreground">Dopoludnia</h4>
+                    <div className="flex flex-wrap gap-x-4 gap-y-3">
+                      {timeGroups.dopoludnia.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedTime(t)}
+                          className={`text-base px-4 py-2 rounded-full transition-all font-medium border ${
+                            selectedTime === t
+                              ? "bg-primary text-primary-foreground dark:text-background border-primary"
+                              : "bg-card text-foreground border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {timeGroups.popoludni.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold uppercase tracking-wider mb-4 text-muted-foreground">Popoludní</h4>
+                    <div className="flex flex-wrap gap-x-4 gap-y-3">
+                      {timeGroups.popoludni.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedTime(t)}
+                          className={`text-base px-4 py-2 rounded-full transition-all font-medium border ${
+                            selectedTime === t
+                              ? "bg-primary text-primary-foreground dark:text-background border-primary"
+                              : "bg-card text-foreground border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-              </div>
-          }
           </div>
-        }
+        )}
 
-        {/* Step: Contact */}
-        {step === "contact" &&
-        <div className="space-y-4">
-            <h2 className="text-xl font-bold text-foreground">Kontaktné údaje</h2>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Meno a priezvisko *</Label>
-                <Input
-                value={contact.name}
-                onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))}
-                placeholder="Jana Nováková" />
+        {/* Step 6: Údaje */}
+        {selectedTime && (
+          <div className="animate-fade-in pb-10">
+            <StepHeader num="6" title="Vyplňte Vaše údaje" />
 
-                {contactErrors.name && <p className="text-destructive text-xs">{contactErrors.name}</p>}
+            <div className="flex flex-col gap-4 mb-6">
+              {[
+                { icon: User, placeholder: "Meno", field: "meno" as const, type: "text" },
+                { icon: User, placeholder: "Priezvisko", field: "priezvisko" as const, type: "text" },
+                { icon: Mail, placeholder: "Email", field: "email" as const, type: "email" },
+              ].map((input, idx) => (
+                <div key={idx}>
+                  <div className={`flex border rounded-full overflow-hidden transition-colors border-border focus-within:border-primary`}>
+                    <div className="w-12 flex items-center justify-center bg-muted text-primary">
+                      <input.icon size={18} />
+                    </div>
+                    <input
+                      type={input.type}
+                      placeholder={input.placeholder}
+                      className="flex-1 py-3 px-4 outline-none bg-card text-foreground placeholder:text-muted-foreground"
+                      value={formData[input.field]}
+                      onChange={(e) => setFormData({ ...formData, [input.field]: e.target.value })}
+                    />
+                  </div>
+                  {contactErrors[input.field] && (
+                    <p className="text-destructive text-xs mt-1 ml-4">{contactErrors[input.field]}</p>
+                  )}
+                </div>
+              ))}
+
+              {/* Telefón */}
+              <div className="flex border rounded-full overflow-hidden transition-colors border-border focus-within:border-primary">
+                <div className="w-12 flex items-center justify-center bg-muted text-primary">
+                  <Phone size={18} />
+                </div>
+                <div className="flex items-center px-3 border-r border-border bg-card">
+                  <div className="w-4 h-3 rounded-sm overflow-hidden flex flex-col border border-muted-foreground/30">
+                    <div className="h-1/3 bg-white w-full" />
+                    <div className="h-1/3 bg-blue-600 w-full" />
+                    <div className="h-1/3 bg-red-600 w-full" />
+                  </div>
+                  <span className="ml-2 text-sm text-muted-foreground">+421</span>
+                </div>
+                <input
+                  type="tel"
+                  className="flex-1 py-3 px-4 outline-none bg-card text-foreground"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
               </div>
-              <div className="space-y-1.5">
-                <Label>Email *</Label>
-                <Input
-                type="email"
-                value={contact.email}
-                onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
-                placeholder="jana@example.sk" />
 
-                {contactErrors.email && <p className="text-destructive text-xs">{contactErrors.email}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Telefón (voliteľný)</Label>
-                <Input
-                value={contact.phone}
-                onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
-                placeholder="+421 900 000 000" />
-
+              {/* Poznámka */}
+              <div className="flex border rounded-3xl overflow-hidden transition-colors min-h-[100px] border-border focus-within:border-primary">
+                <div className="w-12 flex items-start justify-center pt-4 bg-muted text-primary">
+                  <PenLine size={18} />
+                </div>
+                <textarea
+                  placeholder="Poznámka"
+                  className="flex-1 py-3 px-4 outline-none resize-none bg-card text-foreground placeholder:text-muted-foreground"
+                  value={formData.note}
+                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                />
               </div>
             </div>
-            <Button className="w-full" onClick={() => {
-            const result = contactSchema.safeParse(contact);
-            if (!result.success) {
-              const errs: Record<string, string> = {};
-              result.error.errors.forEach((e) => {if (e.path[0]) errs[e.path[0] as string] = e.message;});
-              setContactErrors(errs);
-              return;
-            }
-            setContactErrors({});
-            setStep("confirm");
-          }}>
-              Pokračovať
-            </Button>
-          </div>
-        }
 
-        {/* Step: Confirm */}
-        {step === "confirm" &&
-        <div className="space-y-4">
-            <h2 className="text-xl font-bold text-foreground">Potvrdiť rezerváciu</h2>
-            <Card className="border-border">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <LogoIcon size="sm" className="w-4 h-4" />
-                  <span className="font-medium">{selectedService?.name_sk}</span>
-                  {selectedService?.price && <Badge variant="secondary" className="ml-auto">{selectedService.price}€</Badge>}
+            {/* Consents */}
+            <div className="flex flex-col gap-4 text-sm mb-8 text-muted-foreground">
+              <label className="flex items-start gap-3 cursor-pointer group" onClick={handleCheckAll}>
+                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                  formData.all
+                    ? "border-primary bg-primary"
+                    : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
+                }`}>
+                  {formData.all && <Check size={14} className="text-primary-foreground dark:text-background" />}
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span>{selectedEmployee?.display_name}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>{selectedDate && format(selectedDate, "EEEE, d. MMMM yyyy", { locale: sk })}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{selectedSlot && format(selectedSlot, "HH:mm")} – {selectedSlot && selectedService && format(new Date(selectedSlot.getTime() + selectedService.duration_minutes * 60000), "HH:mm")}</span>
-                </div>
-                <div className="border-t border-border pt-3 space-y-1 text-sm text-muted-foreground">
-                  <p>{contact.name}</p>
-                  <p>{contact.email}</p>
-                  {contact.phone && <p>{contact.phone}</p>}
-                </div>
-              </CardContent>
-            </Card>
-            <Button className="w-full" onClick={handleSubmit} disabled={submitting}>
-              {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Potvrdiť rezerváciu
-            </Button>
-          </div>
-        }
+                <span className="font-medium text-foreground">Označiť všetky možnosti</span>
+              </label>
 
-        {/* Step: Done */}
-        {step === "done" && bookingResult &&
-        <div className="text-center space-y-6 py-8">
-            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto">
-              <Check className="w-8 h-8 text-primary" />
+              <label className="flex items-start gap-3 cursor-pointer group" onClick={() => handleConsentChange("marketing")}>
+                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                  formData.marketing
+                    ? "border-primary bg-primary"
+                    : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
+                }`}>
+                  {formData.marketing && <Check size={14} className="text-primary-foreground dark:text-background" />}
+                </div>
+                <div className="leading-snug">
+                  Súhlasím so spracovaním osobných údajov pre <strong className="text-foreground">Papi Hair Design</strong> na marketingové účely{" "}
+                  <span className="text-primary cursor-pointer hover:underline">Podrobnosti tu</span>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer group" onClick={() => handleConsentChange("terms")}>
+                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                  formData.terms
+                    ? "border-primary bg-primary"
+                    : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
+                }`}>
+                  {formData.terms && <Check size={14} className="text-primary-foreground dark:text-background" />}
+                </div>
+                <div>
+                  Súhlasím so <span className="text-primary cursor-pointer hover:underline">všeobecnými obchodnými podmienkami</span>
+                </div>
+              </label>
+
+              <div className="text-right text-primary text-sm mt-2 cursor-pointer hover:underline">
+                Zásady ochrany osobných údajov
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Rezervácia potvrdená!</h2>
-              <p className="text-muted-foreground text-sm mt-2">
-                Vaša rezervácia bola úspešne vytvorená.
-              </p>
-            </div>
-            <Card className="border-border text-left">
-              <CardContent className="p-4 space-y-2 text-sm">
-                <p><strong>Služba:</strong> {selectedService?.name_sk}</p>
-                <p><strong>Zamestnanec:</strong> {selectedEmployee?.display_name}</p>
-                <p><strong>Dátum:</strong> {selectedDate && format(selectedDate, "d. MMMM yyyy", { locale: sk })}</p>
-                <p><strong>Čas:</strong> {selectedSlot && format(selectedSlot, "HH:mm")}</p>
-              </CardContent>
-            </Card>
 
-            <Card className="border-primary/30 bg-primary/5">
-              <CardContent className="p-4 space-y-3">
-                <p className="text-sm font-medium text-foreground">
-                  Dokonči registráciu a spravuj svoje rezervácie
-                </p>
-                <Button className="w-full" onClick={() => {
-                sessionStorage.setItem("claim_token", bookingResult.claim_token);
-                window.location.href = `/auth?mode=register&email=${encodeURIComponent(bookingResult.customer_email)}&name=${encodeURIComponent(bookingResult.customer_name)}`;
-              }}>
-                  Dokonči registráciu
-                </Button>
-              </CardContent>
-            </Card>
+            {/* Summary */}
+            {selectedService && selectedFullDate && (
+              <div className="text-center text-sm font-medium mb-6 text-foreground">
+                Váš termín: <strong className="text-primary">{selectedService.name_sk}</strong> u <strong className="text-primary">{selectedEmployee?.display_name}</strong>
+                {" "}dňa <strong className="text-primary">{format(selectedFullDate, "d. MMMM", { locale: sk })}</strong> o <strong className="text-primary">{selectedTime}</strong>
+              </div>
+            )}
 
-            <Button
-            variant="outline"
-            onClick={() => {
-              setStep("service");
-              setSelectedService(null);
-              setSelectedEmployee(null);
-              setSelectedDate(null);
-              setSelectedSlot(null);
-              setContact({ name: "", email: "", phone: "" });
-              setBookingResult(null);
-            }}>
-
-              Nová rezervácia
-            </Button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="w-full font-bold py-4 rounded-full text-lg transition-all transform active:scale-[0.98] bg-primary text-primary-foreground dark:text-background hover:bg-primary/90 shadow-lg shadow-primary/30 disabled:opacity-50"
+            >
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "REZERVOVAŤ ONLINE"}
+            </button>
           </div>
-        }
-      </main>
-    </div>);
-
+        )}
+      </div>
+    </div>
+  );
 }
