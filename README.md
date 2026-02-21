@@ -1,73 +1,85 @@
-# Welcome to your Lovable project
+# PAPI HAIR DESIGN – Booking System
 
-## Project info
+Moderný rezervačný systém pre salóny krásy. React PWA + Lovable Cloud backend.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🏗 Architektúra
 
-## How can I edit this code?
+```
+React 18 + Vite + TypeScript
+├── shadcn/ui + Tailwind CSS (UI)
+├── framer-motion (animácie)
+├── Dexie.js (offline-first)
+├── vite-plugin-pwa (PWA)
+└── Lovable Cloud (DB, Auth, Edge Functions, RLS)
+```
 
-There are several ways of editing your application.
+## 👥 Demo účty
 
-**Use Lovable**
+| Rola | Email | Heslo | Prístup |
+|------|-------|-------|---------|
+| Zákazník | `demo@papihairdesign.sk` | `PapiDemo2025!` | `/booking` – rezervácie, história |
+| Majiteľ / Admin | `owner@papihairdesign.sk` | `PapiDemo2025!` | `/admin` – kalendár, zamestnanci, služby, štatistiky |
+| Superadmin | `larsenevans@proton.me` | *kontaktujte nás* | Plný prístup, multi-business správa |
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 🔄 Ako funguje systém
 
-Changes made via Lovable will be committed automatically to this repo.
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Zákazník   │────▶│  /booking    │────▶│  Vytvorí      │
+│  (telefón)  │     │  vyberie     │     │  rezerváciu   │
+└─────────────┘     │  termín      │     └──────┬───────┘
+                    └──────────────┘            │
+                                               ▼
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Admin      │◀────│  Kalendár    │◀────│  Notifikácia │
+│  (dashboard)│     │  sa aktualizuje│    │  e-mailom    │
+└─────────────┘     └──────────────┘     └──────────────┘
+```
 
-**Use your preferred IDE**
+1. **Zákazník** otvorí `/booking`, vyberie službu, zamestnanca a termín
+2. **Systém** vytvorí rezerváciu, pošle e-mail potvrdenie
+3. **Admin** vidí nový termín v kalendári, môže potvrdiť/zrušiť
+4. **Zamestnanec** vidí svoj rozvrh v `/admin/my`
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 📱 Hlavné funkcie
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- **Online rezervácie 24/7** – zákazník si rezervuje kedykoľvek
+- **Správa zamestnancov** – rozvrhy, profily, služby
+- **Multi-tenant** – jeden systém pre viacero prevádzok
+- **Offline-first** – funguje aj bez internetu (Dexie.js + sync)
+- **PWA** – inštalácia na telefón jedným kliknutím
+- **Automatické notifikácie** – e-mail pripomienky
+- **RLS bezpečnosť** – izolácia dát podľa business_id
 
-Follow these steps:
+## 🚀 Rýchly štart
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+git clone <repo-url>
+cd <project>
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Premenné prostredia sa nastavujú automaticky cez Lovable Cloud.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📂 Štruktúra
 
-**Use GitHub Codespaces**
+```
+src/
+├── pages/           # Stránky (Auth, Booking, Admin, Demo...)
+├── components/      # UI komponenty
+├── contexts/        # AuthContext
+├── hooks/           # Custom hooks (useBusiness, useAuth...)
+├── lib/             # Utility funkcie, offline sync
+└── integrations/    # Lovable Cloud klient
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+supabase/
+└── functions/       # Edge Functions (booking, sync, auth...)
+```
 
-## What technologies are used for this project?
+## 🔒 Bezpečnosť
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Row Level Security (RLS) na všetkých tabuľkách
+- Multi-tenant izolácia cez `business_id`
+- Passkeys (WebAuthn) podpora
+- SMTP credentials v edge function secrets

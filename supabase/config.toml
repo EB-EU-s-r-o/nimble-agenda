@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.send-booking-email]
 verify_jwt = false
+
+[functions.seed-demo-accounts]
+verify_jwt = false
