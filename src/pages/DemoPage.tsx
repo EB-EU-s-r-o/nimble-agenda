@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogoIcon } from "@/components/LogoIcon";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
 const item = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.5 } } };
@@ -71,6 +72,9 @@ export default function DemoPage() {
 
   return (
     <div className="liquid-glass-bg min-h-screen text-foreground relative overflow-hidden">
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       <div className="relative z-10 max-w-6xl mx-auto px-4 py-12 sm:py-20">
 
         {/* HERO */}
