@@ -14,6 +14,7 @@ const AdminLayout = lazy(() => import("@/components/AdminLayout").then(m => ({ d
 const CookieConsent = lazy(() => import("@/components/CookieConsent"));
 
 import LiquidPlayground from "./pages/LiquidPlayground";
+const DemoPage = lazy(() => import("./pages/DemoPage"));
 const BookingPage = lazy(() => import("./pages/BookingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const OfflinePage = lazy(() => import("./pages/OfflinePage"));
@@ -51,6 +52,7 @@ const App = () => (
           <Suspense fallback={<LazyFallback />}>
             <Routes>
               <Route path="/" element={<LiquidPlayground />} />
+              <Route path="/demo" element={<DemoPage />} />
               <Route path="/booking" element={<BookingPage />} />
               
               <Route path="/auth" element={<AuthPage />} />
