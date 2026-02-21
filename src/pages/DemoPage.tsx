@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { User, Shield, Crown, Copy, Check, Calendar, Users, BarChart3, Bell, Smartphone, Lock, QrCode } from "lucide-react";
+import { User, Shield, Crown, Copy, Check, Calendar, Users, BarChart3, Bell, Smartphone, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -186,7 +186,12 @@ export default function DemoPage() {
         {/* QR CODE */}
         <motion.section variants={container} initial="hidden" whileInView="show" viewport={{ once: true }} className="mb-24 text-center">
           <motion.div variants={item} className="inline-block rounded-2xl border border-border bg-card/40 backdrop-blur-xl p-8">
-            <QrCode className="w-24 h-24 text-primary/40 mx-auto mb-4" />
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + "/booking")}&bgcolor=transparent&color=c8a864&format=svg`}
+              alt="QR kód pre rezerváciu"
+              className="w-32 h-32 mx-auto mb-4 rounded-lg"
+              loading="lazy"
+            />
             <h3 className="font-semibold text-lg mb-2">QR kód na stole</h3>
             <p className="text-sm text-muted-foreground max-w-xs">Fyzický QR kód na stole – zákazník si rezervuje kým sedí v kresle</p>
           </motion.div>
