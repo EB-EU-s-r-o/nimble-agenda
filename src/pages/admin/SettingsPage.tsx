@@ -8,17 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Mail } from "lucide-react";
 import { BusinessHoursEditor } from "@/components/admin/BusinessHoursEditor";
-const DAYS = [
-  { key: "monday", label: "Pondelok" },
-  { key: "tuesday", label: "Utorok" },
-  { key: "wednesday", label: "Streda" },
-  { key: "thursday", label: "Štvrtok" },
-  { key: "friday", label: "Piatok" },
-  { key: "saturday", label: "Sobota" },
-  { key: "sunday", label: "Nedeľa" },
-];
 
 export default function SettingsPage() {
   const { profile, refreshProfile } = useAuth();
@@ -26,6 +17,7 @@ export default function SettingsPage() {
   const [business, setBusiness] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "" });
+  const [smtpForm, setSmtpForm] = useState({ host: "", port: "", user: "", from: "", pass: "" });
 
   useEffect(() => {
     if (profile) setProfileForm({ full_name: profile.full_name ?? "", phone: profile.phone ?? "" });
@@ -33,7 +25,17 @@ export default function SettingsPage() {
 
   useEffect(() => {
     supabase.from("businesses").select("*").eq("id", businessId).single().then(({ data }) => {
-      if (data) setBusiness(data);
+      if (data) {
+        setBusiness(data);
+        const smtp = (data as any).smtp_config as any ?? {};
+        setSmtpForm({
+          host: smtp.host ?? "",
+          port: smtp.port ?? "",
+          user: smtp.user ?? "",
+          from: smtp.from ?? "",
+          pass: smtp.pass ?? "",
+        });
+      }
     });
   }, [businessId]);
 
@@ -67,14 +69,25 @@ export default function SettingsPage() {
   const setB = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setBusiness((b: any) => ({ ...b, [k]: k.includes("minutes") || k.includes("hours") || k.includes("ahead") ? +e.target.value : e.target.value }));
 
+  const saveSmtp = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("businesses").update({
+      smtp_config: smtpForm as any,
+    }).eq("id", businessId);
+    setSaving(false);
+    if (error) { toast.error("Chyba pri ukladaní SMTP"); return; }
+    toast.success("SMTP nastavenia uložené");
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-bold text-foreground">Nastavenia</h1>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general">Všeobecné</TabsTrigger>
           <TabsTrigger value="hours">Otváracie hodiny</TabsTrigger>
+          <TabsTrigger value="smtp">SMTP Email</TabsTrigger>
           <TabsTrigger value="profile">Profil</TabsTrigger>
         </TabsList>
 
@@ -124,6 +137,45 @@ export default function SettingsPage() {
 
         <TabsContent value="hours" className="mt-4">
           <BusinessHoursEditor />
+        </TabsContent>
+
+        <TabsContent value="smtp" className="space-y-6 mt-4">
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                SMTP Nastavenia
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label>SMTP Server (host)</Label>
+                  <Input value={smtpForm.host} onChange={(e) => setSmtpForm((f) => ({ ...f, host: e.target.value }))} placeholder="smtp.example.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Port</Label>
+                  <Input value={smtpForm.port} onChange={(e) => setSmtpForm((f) => ({ ...f, port: e.target.value }))} placeholder="465" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Používateľ (login)</Label>
+                  <Input value={smtpForm.user} onChange={(e) => setSmtpForm((f) => ({ ...f, user: e.target.value }))} placeholder="user@example.com" />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Odosielateľ (From)</Label>
+                  <Input value={smtpForm.from} onChange={(e) => setSmtpForm((f) => ({ ...f, from: e.target.value }))} placeholder="booking@example.com" />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Heslo</Label>
+                  <Input type="password" value={smtpForm.pass} onChange={(e) => setSmtpForm((f) => ({ ...f, pass: e.target.value }))} placeholder="••••••••" />
+                </div>
+              </div>
+              <Button onClick={saveSmtp} disabled={saving} size="sm">
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Uložiť SMTP
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="profile" className="space-y-6 mt-4">

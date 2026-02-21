@@ -265,6 +265,7 @@ export type Database = {
           opening_hours: Json
           phone: string | null
           slug: string | null
+          smtp_config: Json
           timezone: string
           updated_at: string
         }
@@ -282,6 +283,7 @@ export type Database = {
           opening_hours?: Json
           phone?: string | null
           slug?: string | null
+          smtp_config?: Json
           timezone?: string
           updated_at?: string
         }
@@ -299,6 +301,7 @@ export type Database = {
           opening_hours?: Json
           phone?: string | null
           slug?: string | null
+          smtp_config?: Json
           timezone?: string
           updated_at?: string
         }
