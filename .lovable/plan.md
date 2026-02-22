@@ -1,27 +1,55 @@
 
 
-## Nova prepracovana ikona aplikacie
+## Expanding Cards na /demo stranke
 
-### Co sa spravi
+Premena /demo stranky na vizualne pohlcujuci dizajn s expandujucimi kartami (accordion-style), kde kazda karta reprezentuje jednu sekciu existujuceho obsahu.
 
-Pomocou AI generatora obrazkov (Gemini) sa vytvori nova, prepracovana ikona aplikacie na zaklade existujuceho loga PHD (PAPI HAIR DESIGN). Nasledne sa nahradi:
+### Koncept
 
-- `public/pwa-icon-192.png` (192x192)
-- `public/pwa-icon-512.png` (512x512)  
-- `public/favicon.ico`
+Horizontalne karty na desktope (vertikalne na mobile), ktore sa po kliknuti roztiahnu a odkryju obsah. Kazda karta ma pozadie s gradient/efektom a zlatu ikonku. Aktivna karta zaberie vacsinu priestoru, neaktivne sa zuzuju na uzke pruzky s ikonkou.
 
-### Dizajnovy smer
+### Struktura kariet (5 kariet)
 
-- Zachovat zlaty kruhovy emblem s motivom noznic/britvy a textom "PHD"
-- Cistejsie linie, modernejsi look
-- Optimalizovane pre male rozlisenia (favicon) aj velke (512px PWA)
-- AMOLED cierne pozadie pre konzistenciu s temou aplikacie
+1. **PAPI HAIR DESIGN** - Hero s logom, nadpisom a CTA buttonmi
+2. **Demo ucty** - 3 demo ucty s copy buttonmi a prihlasenim
+3. **Ako to funguje** - 3 kroky procesu
+4. **Funkcie** - Grid 6 featurov
+5. **QR kod** - QR kod na rezervaciu
 
-### Technicke kroky
+### Technicke detaily
 
-1. Pouzit Gemini image model na vygenerovanie novej ikony na zaklade existujuceho loga
-2. Ulozit vysledok ako `public/pwa-icon-512.png` (512x512)
-3. Vytvorit zmensenu verziu `public/pwa-icon-192.png` (192x192)
-4. Aktualizovat `public/favicon.ico` referenciu v `index.html` na novy PNG subor
-5. Existujuce referencie v `vite.config.ts` a `index.html` ostanu rovnake (pouzivaju rovnake nazvy suborov)
+**Novy CSS subor** `src/styles/expanding-cards.css`:
+- BEM konvencia (`.expanding-cards`, `.expanding-cards__option`, `.expanding-cards__option--active`)
+- Flexbox layout s `transition: flex-grow 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95)`
+- Neaktivne karty: `flex-grow: 1`, `min-width: 80px`, `border-radius: 24px`
+- Aktivna karta: `flex-grow: 10`, `max-width: 700px`, `border-radius: 32px`
+- Kazda karta ma gradient pozadie s AMOLED black a zlatymi akcentmi
+- Shadow overlay na spodku pre citatelnost labelu
+- Na mobile: vertikalny layout, kazda karta ma `min-height: 60px`, aktivna expanduje na `flex-grow: 6`
+
+**Upraveny subor** `src/pages/DemoPage.tsx`:
+- Nahradenie scrollovacej stranky za fullscreen expanding cards
+- React state `activeCard` na sledovanie aktivnej karty (default: 0 = hero)
+- Framer Motion `AnimatePresence` pre plynule prechody obsahu vnutri kariet
+- Zachovanie vsetkych existujucich dat (demoAccounts, steps, features)
+- Zachovanie `CopyButton` komponentu
+- ThemeToggle zostava v pravom hornom rohu
+
+**Vizualne detaily kazdej karty:**
+- Neaktivna: zobrazuje len ikonu v zlatom kruhu + rotovany nazov sekcie
+- Aktivna: plny obsah s animovanym fade-in, scrollovatelny ak je obsah vyssi
+- Pozadie: cierne s jemnymi zlatymi gradient akcentmi (rozne pre kazdu kartu)
+- Border: 1px solid rgba(218,165,32, 0.15) - konzistentne s liquid glass systemom
+- Backdrop-blur pre glass efekt
+
+**Responzivita:**
+- Desktop (>768px): horizontalny layout, vyska 85vh
+- Mobile (<=768px): vertikalny layout, plna vyska obrazovky, aktivna karta expanduje vertikalne
+
+### Zhrnutie zmien
+
+| Subor | Akcia |
+|---|---|
+| `src/styles/expanding-cards.css` | Novy - vsetky styly pre expanding cards |
+| `src/pages/DemoPage.tsx` | Prepracovanie na expanding cards layout |
 
