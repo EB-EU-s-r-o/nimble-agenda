@@ -11,6 +11,20 @@ import { LogoIcon } from "@/components/LogoIcon";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import "@/styles/expanding-cards.css";
 
+import cardBgHero from "@/assets/card-bg-hero.jpg";
+import cardBgAccounts from "@/assets/card-bg-accounts.jpg";
+import cardBgHow from "@/assets/card-bg-how.jpg";
+import cardBgFeatures from "@/assets/card-bg-features.jpg";
+import cardBgQr from "@/assets/card-bg-qr.jpg";
+
+const cardBackgrounds: Record<string, string> = {
+  hero: cardBgHero,
+  accounts: cardBgAccounts,
+  how: cardBgHow,
+  features: cardBgFeatures,
+  qr: cardBgQr,
+};
+
 /* ── Data ── */
 
 const demoAccounts = [
@@ -230,6 +244,12 @@ export default function DemoPage() {
               className={`expanding-cards__option ${isActive ? "expanding-cards__option--active" : ""}`}
               onClick={() => setActiveCard(i)}
             >
+              {/* Background image */}
+              <div
+                className="expanding-cards__bg"
+                style={{ backgroundImage: `url(${cardBackgrounds[card.id]})` }}
+              />
+
               {/* Collapsed label */}
               {!isActive && (
                 <span className="expanding-cards__collapsed-label">{card.label}</span>
