@@ -89,9 +89,9 @@ function CopyButton({ text }: { text: string }) {
 }
 
 const contentAnim = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.4, delay: 0.15 } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
+  initial: { opacity: 0, y: 16, filter: "blur(4px)" },
+  animate: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] } },
+  exit: { opacity: 0, y: -6, filter: "blur(2px)", transition: { duration: 0.35, ease: "easeIn" } },
 };
 
 /* ── Card Content Components ── */
