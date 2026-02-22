@@ -39,13 +39,14 @@ const CATEGORIES: { label: string; icon: string; match: (name: string) => boolea
 ];
 
 function categorizeServices(services: any[]) {
+  const assigned = new Set<string>();
   const groups: { label: string; icon: string; items: any[] }[] = [];
   for (const cat of CATEGORIES) {
-    const items = services.filter((s) => cat.match(s.name_sk));
+    const items = services.filter((s) => !assigned.has(s.id) && cat.match(s.name_sk));
+    items.forEach((s) => assigned.add(s.id));
     if (items.length) groups.push({ label: cat.label, icon: cat.icon, items });
   }
-  const matched = groups.flatMap((g) => g.items.map((i) => i.id));
-  const rest = services.filter((s) => !matched.includes(s.id));
+  const rest = services.filter((s) => !assigned.has(s.id));
   if (rest.length) groups.push({ label: "Ostatné", icon: "📋", items: rest });
   return groups;
 }
@@ -91,8 +92,8 @@ function BrandContent({ openStatus, navigate }: { openStatus: any; navigate: Ret
     <div className="flex flex-col items-center justify-center h-full gap-5 text-center">
       <LogoIcon size="lg" />
       <div>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-          PAPI <span className="italic font-light">Hair</span> DESIGN
+        <h1 className="text-4xl sm:text-5xl font-semibold tracking-widest uppercase">
+          PAPI HAIR DESIGN
         </h1>
         <p className="text-xs mt-1 text-muted-foreground tracking-widest uppercase">
           est. 2018 · Košice
@@ -138,7 +139,7 @@ function HoursContent({ info, openStatus, nextOpening }: { info: any; openStatus
     <div className="flex flex-col justify-center h-full gap-2">
       <h2 className="text-xl font-bold mb-2">Otváracie hodiny</h2>
       {hoursByDay.map(({ day, mode, time }) => (
-        <div key={day} className="flex items-center justify-between text-sm py-1.5 border-b border-white/5 last:border-0">
+        <div key={day} className="flex items-center justify-between text-base py-1.5 border-b border-white/5 last:border-0">
           <span className="font-medium text-muted-foreground w-8">{DAY_LABELS[day]}</span>
           <span className={
             mode === "closed"     ? "text-red-400"   :
@@ -167,12 +168,12 @@ function PricesContent({ services }: { services: any[] }) {
       <h2 className="text-xl font-bold">Cenník služieb</h2>
       {groups.map((g) => (
         <div key={g.label}>
-          <h3 className="text-xs font-bold mb-1.5 flex items-center gap-1.5 text-amber-400">
+          <h3 className="text-[15px] font-bold mb-1.5 flex items-center gap-1.5 text-amber-400">
             <span>{g.icon}</span> {g.label}
           </h3>
           <div className="space-y-1">
             {g.items.map((svc) => (
-              <div key={svc.id} className="flex items-center justify-between text-xs px-1">
+              <div key={svc.id} className="flex items-center justify-between text-[15px] px-1">
                 <span className="text-muted-foreground">{svc.name_sk}</span>
                 <span className="font-semibold tabular-nums">
                   {svc.price != null ? `${Number(svc.price).toFixed(0)} €` : "—"}
@@ -222,6 +223,7 @@ function BookingContent() {
 
 function ContactContent() {
   const [copied, setCopied] = useState<string | null>(null);
+  const [mapLit, setMapLit] = useState(false);
 
   const copy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -230,7 +232,7 @@ function ContactContent() {
   };
 
   return (
-    <div className="flex flex-col justify-center h-full gap-5">
+    <div className="flex flex-col h-full gap-4">
       <h2 className="text-xl font-bold">Kontakt</h2>
       <div className="space-y-4">
         <div className="flex items-start gap-3">
@@ -269,6 +271,32 @@ function ContactContent() {
             <p className="text-xs text-muted-foreground">Prémiové produkty</p>
           </div>
         </div>
+      </div>
+
+      {/* Google Maps – Trieda SNP 61, Košice */}
+      <div
+        className="mt-auto rounded-xl overflow-hidden border border-white/10"
+        style={{ height: "220px", minHeight: "180px" }}
+        onMouseEnter={() => setMapLit(true)}
+        onMouseLeave={() => setMapLit(false)}
+        onTouchStart={() => setMapLit(true)}
+        onTouchEnd={() => setMapLit(false)}
+      >
+        <iframe
+          title="Mapa – PAPI HAIR DESIGN"
+          src="https://www.openstreetmap.org/export/embed.html?bbox=21.2336%2C48.7168%2C21.2436%2C48.7218&layer=mapnik&marker=48.7193%2C21.2386"
+          width="100%"
+          height="100%"
+          style={{
+            border: 0,
+            filter: mapLit
+              ? "grayscale(0) brightness(1) contrast(1)"
+              : "grayscale(0.7) brightness(0.49) contrast(1.1)",
+            transition: "filter 0.5s ease",
+          }}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
       </div>
     </div>
   );

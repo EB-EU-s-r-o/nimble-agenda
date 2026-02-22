@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(scoop install:*)",
+      "Bash(winget install:*)",
+      "Read(//c/tmp/**)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run lint:*)"
+    ],
+    "additionalDirectories": [
+      "\\tmp",
+      "C:\\Users\\42195"
+    ]
+  }
+}

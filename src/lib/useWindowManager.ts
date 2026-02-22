@@ -22,7 +22,9 @@ function loadPositions(): Record<string, WindowPosition> {
 function savePositions(positions: Record<string, WindowPosition>) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
-  } catch {}
+  } catch (e) {
+    // Silently fail as this is a non-critical side effect
+  }
 }
 
 export function useWindowManager(
