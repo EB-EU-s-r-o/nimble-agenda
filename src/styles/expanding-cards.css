@@ -1,0 +1,239 @@
+/* ============================================
+   Expanding Cards – BEM Architecture
+   ============================================ */
+
+.expanding-cards {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  height: 85vh;
+  padding: 20px;
+  gap: 12px;
+  overflow: hidden;
+}
+
+/* --- Option (each card) --- */
+
+.expanding-cards__option {
+  position: relative;
+  overflow: hidden;
+  min-width: 80px;
+  flex-grow: 1;
+  border-radius: 24px;
+  border: 1px solid rgba(218, 165, 32, 0.15);
+  background: linear-gradient(160deg, hsl(0 0% 4%), hsl(0 0% 2%));
+  backdrop-filter: blur(20px);
+  cursor: pointer;
+  transition: flex-grow 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95),
+              min-width 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95),
+              border-radius 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95),
+              border-color 0.3s ease;
+}
+
+.expanding-cards__option:hover {
+  border-color: rgba(218, 165, 32, 0.3);
+}
+
+/* Gradient accent overlays – unique per card */
+.expanding-cards__option:nth-child(1) {
+  background: linear-gradient(160deg, hsl(0 0% 5%), hsl(43 60% 8%) 60%, hsl(0 0% 2%));
+}
+.expanding-cards__option:nth-child(2) {
+  background: linear-gradient(200deg, hsl(0 0% 5%), hsl(43 40% 6%) 50%, hsl(0 0% 2%));
+}
+.expanding-cards__option:nth-child(3) {
+  background: linear-gradient(140deg, hsl(0 0% 5%), hsl(43 50% 7%) 55%, hsl(0 0% 2%));
+}
+.expanding-cards__option:nth-child(4) {
+  background: linear-gradient(180deg, hsl(0 0% 5%), hsl(43 35% 6%) 50%, hsl(0 0% 2%));
+}
+.expanding-cards__option:nth-child(5) {
+  background: linear-gradient(220deg, hsl(0 0% 5%), hsl(43 45% 7%) 55%, hsl(0 0% 2%));
+}
+
+/* --- Active state --- */
+
+.expanding-cards__option--active {
+  flex-grow: 10000;
+  max-width: 700px;
+  border-radius: 32px;
+  border-color: rgba(218, 165, 32, 0.25);
+}
+
+.expanding-cards__option--active .expanding-cards__shadow {
+  box-shadow: inset 0 -120px 120px -120px black,
+              inset 0 -120px 120px -100px black;
+}
+
+.expanding-cards__option--active .expanding-cards__label {
+  bottom: 20px;
+  left: 20px;
+}
+
+.expanding-cards__option--active .expanding-cards__label-text {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* --- Inactive state --- */
+
+.expanding-cards__option:not(.expanding-cards__option--active) .expanding-cards__shadow {
+  bottom: -40px;
+  box-shadow: inset 0 -120px 0 -120px black,
+              inset 0 -120px 0 -100px black;
+}
+
+.expanding-cards__option:not(.expanding-cards__option--active) .expanding-cards__label {
+  bottom: 10px;
+  left: 10px;
+}
+
+.expanding-cards__option:not(.expanding-cards__option--active) .expanding-cards__label-text {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+/* --- Shadow overlay --- */
+
+.expanding-cards__shadow {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  transition: 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95);
+  pointer-events: none;
+}
+
+/* --- Label (icon + text at bottom) --- */
+
+.expanding-cards__label {
+  display: flex;
+  position: absolute;
+  right: 0;
+  height: 40px;
+  z-index: 10;
+  transition: 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95);
+}
+
+.expanding-cards__label-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 40px;
+  max-width: 40px;
+  height: 40px;
+  border-radius: 100%;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  flex-shrink: 0;
+}
+
+.expanding-cards__label-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+
+.expanding-cards__label-text {
+  position: relative;
+  transition: 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95),
+              opacity 0.5s ease-out;
+  color: hsl(var(--foreground));
+}
+
+.expanding-cards__label-main {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.expanding-cards__label-sub {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  transition-delay: 0.1s;
+}
+
+/* --- Collapsed label (rotated text) --- */
+
+.expanding-cards__collapsed-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: hsl(var(--primary));
+  opacity: 0.8;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.expanding-cards__option--active .expanding-cards__collapsed-label {
+  opacity: 0;
+}
+
+/* --- Content area inside active card --- */
+
+.expanding-cards__content {
+  position: absolute;
+  inset: 0;
+  padding: 32px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(218, 165, 32, 0.3) transparent;
+}
+
+.expanding-cards__content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.expanding-cards__content::-webkit-scrollbar-thumb {
+  background: rgba(218, 165, 32, 0.3);
+  border-radius: 4px;
+}
+
+/* ============================================
+   Responsive – Mobile (vertical layout)
+   ============================================ */
+
+@media screen and (max-width: 768px) {
+  .expanding-cards {
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .expanding-cards__option {
+    min-width: unset;
+    min-height: 56px;
+    width: 100%;
+  }
+
+  .expanding-cards__option--active {
+    flex-grow: 6;
+    max-width: unset;
+  }
+
+  .expanding-cards__collapsed-label {
+    transform: translate(-50%, -50%) rotate(0deg);
+    font-size: 0.7rem;
+  }
+
+  .expanding-cards__label {
+    bottom: 8px !important;
+    left: 8px !important;
+  }
+
+  .expanding-cards__content {
+    padding: 20px 16px;
+  }
+}
