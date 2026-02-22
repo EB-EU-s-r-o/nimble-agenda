@@ -59,6 +59,7 @@ export default function BookingPage() {
   const [businessHourEntries, setBusinessHourEntries] = useState<BusinessHourEntry[]>([]);
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
+  const [employeeServiceMap, setEmployeeServiceMap] = useState<Record<string, string[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
 
   // Booking states
@@ -112,6 +113,15 @@ export default function BookingPage() {
         });
         setSchedules(map);
       }
+
+      const { data: esMap } = await supabase.from("employee_services").select("employee_id, service_id");
+      const eMap: Record<string, string[]> = {};
+      (esMap ?? []).forEach((item: any) => {
+        if (!eMap[item.employee_id]) eMap[item.employee_id] = [];
+        eMap[item.employee_id].push(item.service_id);
+      });
+      setEmployeeServiceMap(eMap);
+
       setInitialLoading(false);
     };
     load();
@@ -132,6 +142,17 @@ export default function BookingPage() {
   }, [services, category, subcategory]);
 
   const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
+
+  // Filter employees based on selected service
+  const filteredEmployees = useMemo(() => {
+    if (!selectedServiceId) return employees;
+    return employees.filter(emp => {
+      // If we have no mapping for this employee, assume they do all services (fallback)
+      if (!employeeServiceMap[emp.id]) return true;
+      return employeeServiceMap[emp.id].includes(selectedServiceId);
+    });
+  }, [employees, selectedServiceId, employeeServiceMap]);
+
   const selectedEmployee = employees.find((e) => e.id === selectedWorkerId) ?? null;
 
   // Calendar helpers
@@ -283,9 +304,8 @@ export default function BookingPage() {
   );
 
   const RadioIcon = ({ selected }: { selected: boolean }) => (
-    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-      selected ? "border-primary" : "border-muted-foreground/40"
-    }`}>
+    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${selected ? "border-primary" : "border-muted-foreground/40"
+      }`}>
       {selected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
     </div>
   );
@@ -380,11 +400,10 @@ export default function BookingPage() {
             <button
               key={cat}
               onClick={() => { setCategory(cat); setSubcategory(null); setSelectedServiceId(null); setSelectedWorkerId(null); setSelectedDate(null); setSelectedTime(null); }}
-              className={`w-full py-3.5 rounded-full font-medium text-lg transition-all ${
-                category === cat
-                  ? "bg-primary text-primary-foreground dark:text-background shadow-lg shadow-primary/20"
-                  : "bg-card text-muted-foreground border border-border"
-              }`}
+              className={`w-full py-3.5 rounded-full font-medium text-lg transition-all ${category === cat
+                ? "bg-primary text-primary-foreground dark:text-background shadow-lg shadow-primary/20"
+                : "bg-card text-muted-foreground border border-border"
+                }`}
             >
               {cat === "damske" ? "Dámske Služby" : "Pánske Služby"}
             </button>
@@ -396,11 +415,10 @@ export default function BookingPage() {
             <button
               key={sub}
               onClick={() => { setSubcategory(sub); setSelectedServiceId(null); }}
-              className={`w-full py-3.5 rounded-full border transition-all duration-200 text-sm font-medium uppercase tracking-wider ${
-                subcategory === sub
-                  ? "border-primary bg-card text-primary"
-                  : "border-border text-muted-foreground bg-card hover:border-muted-foreground/50"
-              }`}
+              className={`w-full py-3.5 rounded-full border transition-all duration-200 text-sm font-medium uppercase tracking-wider ${subcategory === sub
+                ? "border-primary bg-card text-primary"
+                : "border-border text-muted-foreground bg-card hover:border-muted-foreground/50"
+                }`}
             >
               {sub}
             </button>
@@ -416,11 +434,10 @@ export default function BookingPage() {
                 <div
                   key={srv.id}
                   onClick={() => setSelectedServiceId(srv.id)}
-                  className={`border rounded-[2rem] p-4 flex items-center gap-4 cursor-pointer transition-all duration-200 ${
-                    selectedServiceId === srv.id
-                      ? "border-primary bg-card"
-                      : "border-border bg-card"
-                  }`}
+                  className={`border rounded-[2rem] p-4 flex items-center gap-4 cursor-pointer transition-all duration-200 ${selectedServiceId === srv.id
+                    ? "border-primary bg-card"
+                    : "border-border bg-card"
+                    }`}
                 >
                   <RadioIcon selected={selectedServiceId === srv.id} />
                   <div className="flex flex-col flex-1">
@@ -443,15 +460,14 @@ export default function BookingPage() {
           <div className="animate-fade-in">
             <StepHeader num="3" title="Vyberte pracovníka" />
             <div className="flex flex-col gap-4">
-              {employees.map((w) => (
+              {filteredEmployees.map((w) => (
                 <div
                   key={w.id}
                   onClick={() => { setSelectedWorkerId(w.id); setSelectedDate(null); setSelectedTime(null); }}
-                  className={`border rounded-[2rem] p-2 flex items-center gap-4 cursor-pointer transition-all duration-200 ${
-                    selectedWorkerId === w.id
-                      ? "border-primary bg-card"
-                      : "border-border bg-card"
-                  }`}
+                  className={`border rounded-[2rem] p-2 flex items-center gap-4 cursor-pointer transition-all duration-200 ${selectedWorkerId === w.id
+                    ? "border-primary bg-card"
+                    : "border-border bg-card"
+                    }`}
                 >
                   <div className="pl-2"><RadioIcon selected={selectedWorkerId === w.id} /></div>
                   <div className="flex w-full h-24 rounded-2xl overflow-hidden border border-primary/30">
@@ -518,15 +534,14 @@ export default function BookingPage() {
                       <button
                         onClick={() => { if (!disabled) { setSelectedDate(day); setSelectedTime(null); } }}
                         disabled={disabled}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${
-                          isSelected
-                            ? "bg-primary text-primary-foreground dark:text-background font-bold shadow-md"
-                            : isToday
-                              ? "border border-muted-foreground/40 text-foreground"
-                              : isPast || disabled
-                                ? "text-muted-foreground/20 cursor-not-allowed"
-                                : "text-foreground hover:bg-accent"
-                        }`}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${isSelected
+                          ? "bg-primary text-primary-foreground dark:text-background font-bold shadow-md"
+                          : isToday
+                            ? "border border-muted-foreground/40 text-foreground"
+                            : isPast || disabled
+                              ? "text-muted-foreground/20 cursor-not-allowed"
+                              : "text-foreground hover:bg-accent"
+                          }`}
                       >
                         {day}
                       </button>
@@ -558,11 +573,10 @@ export default function BookingPage() {
                         <button
                           key={t}
                           onClick={() => setSelectedTime(t)}
-                          className={`text-base px-4 py-2 rounded-full transition-all font-medium border ${
-                            selectedTime === t
-                              ? "bg-primary text-primary-foreground dark:text-background border-primary"
-                              : "bg-card text-foreground border-border hover:border-primary/50"
-                          }`}
+                          className={`text-base px-4 py-2 rounded-full transition-all font-medium border ${selectedTime === t
+                            ? "bg-primary text-primary-foreground dark:text-background border-primary"
+                            : "bg-card text-foreground border-border hover:border-primary/50"
+                            }`}
                         >
                           {t}
                         </button>
@@ -578,11 +592,10 @@ export default function BookingPage() {
                         <button
                           key={t}
                           onClick={() => setSelectedTime(t)}
-                          className={`text-base px-4 py-2 rounded-full transition-all font-medium border ${
-                            selectedTime === t
-                              ? "bg-primary text-primary-foreground dark:text-background border-primary"
-                              : "bg-card text-foreground border-border hover:border-primary/50"
-                          }`}
+                          className={`text-base px-4 py-2 rounded-full transition-all font-medium border ${selectedTime === t
+                            ? "bg-primary text-primary-foreground dark:text-background border-primary"
+                            : "bg-card text-foreground border-border hover:border-primary/50"
+                            }`}
                         >
                           {t}
                         </button>
@@ -663,22 +676,20 @@ export default function BookingPage() {
             {/* Consents */}
             <div className="flex flex-col gap-4 text-sm mb-8 text-muted-foreground">
               <label className="flex items-start gap-3 cursor-pointer group" onClick={handleCheckAll}>
-                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                  formData.all
-                    ? "border-primary bg-primary"
-                    : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
-                }`}>
+                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${formData.all
+                  ? "border-primary bg-primary"
+                  : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
+                  }`}>
                   {formData.all && <Check size={14} className="text-primary-foreground dark:text-background" />}
                 </div>
                 <span className="font-medium text-foreground">Označiť všetky možnosti</span>
               </label>
 
               <label className="flex items-start gap-3 cursor-pointer group" onClick={() => handleConsentChange("marketing")}>
-                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                  formData.marketing
-                    ? "border-primary bg-primary"
-                    : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
-                }`}>
+                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${formData.marketing
+                  ? "border-primary bg-primary"
+                  : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
+                  }`}>
                   {formData.marketing && <Check size={14} className="text-primary-foreground dark:text-background" />}
                 </div>
                 <div className="leading-snug">
@@ -688,11 +699,10 @@ export default function BookingPage() {
               </label>
 
               <label className="flex items-start gap-3 cursor-pointer group" onClick={() => handleConsentChange("terms")}>
-                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                  formData.terms
-                    ? "border-primary bg-primary"
-                    : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
-                }`}>
+                <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${formData.terms
+                  ? "border-primary bg-primary"
+                  : "border-muted-foreground/40 bg-transparent group-hover:border-primary"
+                  }`}>
                   {formData.terms && <Check size={14} className="text-primary-foreground dark:text-background" />}
                 </div>
                 <div>

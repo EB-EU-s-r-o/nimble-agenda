@@ -19,7 +19,7 @@ const DAYS: { key: string; label: string }[] = [
   { key: "sunday", label: "Nedeľa" },
 ];
 
-type DayKey = "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
+type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type ScheduleMap = Partial<Record<DayKey, { start: string; end: string; active: boolean }>>;
 
 const DEFAULT_SCHEDULE: ScheduleMap = Object.fromEntries(
@@ -35,6 +35,8 @@ export default function EmployeesPage() {
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({ display_name: "", email: "", phone: "" });
   const [schedule, setSchedule] = useState<ScheduleMap>(DEFAULT_SCHEDULE);
+  const [allServices, setAllServices] = useState<any[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -50,6 +52,15 @@ export default function EmployeesPage() {
       (scheds ?? []).forEach((s) => { if (!map[s.employee_id]) map[s.employee_id] = []; map[s.employee_id].push(s); });
       setSchedules(map);
     }
+
+    // Load all business services
+    const { data: svcs } = await supabase.from("services")
+      .select("id, name_sk")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .order("name_sk");
+    setAllServices(svcs ?? []);
+
     setLoading(false);
   };
 
@@ -59,6 +70,7 @@ export default function EmployeesPage() {
     setEditing(null);
     setForm({ display_name: "", email: "", phone: "" });
     setSchedule(DEFAULT_SCHEDULE);
+    setSelectedServiceIds(allServices.map(s => s.id));
     setOpen(true);
   };
 
@@ -69,8 +81,20 @@ export default function EmployeesPage() {
     (schedules[emp.id] ?? []).forEach((s) => {
       sched[s.day_of_week as DayKey] = { start: s.start_time, end: s.end_time, active: true };
     });
-    DAYS.forEach(({ key }) => { if (!schedules[emp.id]?.find((s) => s.day_of_week === key)) { (sched[key as DayKey] as any).active = false; } });
+    DAYS.forEach(({ key }) => {
+      if (!schedules[emp.id]?.find((s) => s.day_of_week === key)) {
+        (sched[key as DayKey] as any).active = false;
+      }
+    });
     setSchedule(sched);
+
+    // Load employee services
+    const loadEmpServices = async () => {
+      const { data } = await supabase.from("employee_services").select("service_id").eq("employee_id", emp.id);
+      setSelectedServiceIds((data ?? []).map(d => d.service_id));
+    };
+    loadEmpServices();
+
     setOpen(true);
   };
 
@@ -80,15 +104,25 @@ export default function EmployeesPage() {
 
     let empId = editing?.id;
     if (editing) {
-      await supabase.from("employees").update({ display_name: form.display_name, email: form.email || null, phone: form.phone || null }).eq("id", editing.id);
+      await supabase.from("employees").update({
+        display_name: form.display_name,
+        email: form.email || null,
+        phone: form.phone || null
+      }).eq("id", editing.id);
     } else {
-      const { data } = await supabase.from("employees").insert({ business_id: businessId, display_name: form.display_name, email: form.email || null, phone: form.phone || null }).select().single();
+      const { data } = await supabase.from("employees").insert({
+        business_id: businessId,
+        display_name: form.display_name,
+        email: form.email || null,
+        phone: form.phone || null
+      }).select().single();
       empId = data?.id;
     }
 
     if (empId) {
+      // 1. Save schedules
       await supabase.from("schedules").delete().eq("employee_id", empId);
-      type DayOfWeek = "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
+      type DayOfWeek = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
       const rows = DAYS.filter(({ key }) => schedule[key as DayKey]?.active).map(({ key }) => ({
         employee_id: empId as string,
         day_of_week: key as DayOfWeek,
@@ -96,6 +130,16 @@ export default function EmployeesPage() {
         end_time: schedule[key as DayKey]!.end,
       }));
       if (rows.length) await supabase.from("schedules").insert(rows);
+
+      // 2. Save service assignments
+      await supabase.from("employee_services").delete().eq("employee_id", empId);
+      if (selectedServiceIds.length) {
+        const serviceRows = selectedServiceIds.map(sid => ({
+          employee_id: empId as string,
+          service_id: sid
+        }));
+        await supabase.from("employee_services").insert(serviceRows);
+      }
     }
 
     setSaving(false);
@@ -217,6 +261,25 @@ export default function EmployeesPage() {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="space-y-2 border-t border-border pt-4">
+              <Label>Priradené služby</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {allServices.map((srv) => (
+                  <div key={srv.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`srv-${srv.id}`}
+                      checked={selectedServiceIds.includes(srv.id)}
+                      onCheckedChange={(v) => {
+                        if (v) setSelectedServiceIds(prev => [...prev, srv.id]);
+                        else setSelectedServiceIds(prev => prev.filter(id => id !== srv.id));
+                      }}
+                    />
+                    <label htmlFor={`srv-${srv.id}`} className="text-sm text-foreground truncate">{srv.name_sk}</label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
