@@ -72,7 +72,7 @@ function setTimeOnDate(date: Date, timeStr: string): Date {
  * Get effective business intervals for a given date, considering overrides.
  * Returns null if closed/on_request (no slots), or array of {start, end} intervals.
  */
-function getEffectiveIntervals(
+export function getEffectiveIntervals(
   date: Date,
   businessHourEntries?: BusinessHourEntry[],
   dateOverrides?: DateOverrideEntry[],

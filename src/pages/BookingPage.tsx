@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateSlots, type BusinessHours, type EmployeeSchedule, type ExistingAppointment, type BusinessHourEntry, type DateOverrideEntry } from "@/lib/availability";
+import { generateSlots, getEffectiveIntervals, type BusinessHours, type EmployeeSchedule, type ExistingAppointment, type BusinessHourEntry, type DateOverrideEntry } from "@/lib/availability";
 import { toast } from "sonner";
 import { format, addDays, startOfDay, isSameDay, isAfter, isBefore, getDaysInMonth, getDay, startOfMonth } from "date-fns";
 import { sk } from "date-fns/locale";
@@ -173,6 +173,17 @@ export default function BookingPage() {
     const dayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][date.getDay()];
     return (schedules[empId] ?? []).some((s) => s.day_of_week === dayName);
   }, [schedules]);
+
+  // Check if business is open on a day
+  const isBusinessOpenOnDay = useCallback((date: Date) => {
+    const intervals = getEffectiveIntervals(
+      date,
+      businessHourEntries,
+      dateOverrides,
+      business?.opening_hours
+    );
+    return !!(intervals && intervals.length > 0);
+  }, [businessHourEntries, dateOverrides, business]);
 
   // Load slots when date selected
   useEffect(() => {
@@ -524,8 +535,9 @@ export default function BookingPage() {
                   const dayDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
                   const isPast = isBefore(dayDate, today);
                   const isTooFar = isAfter(dayDate, addDays(today, maxDays));
+                  const isClosed = !isBusinessOpenOnDay(dayDate);
                   const empAvailable = selectedWorkerId ? isEmployeeAvailableOnDay(selectedWorkerId, dayDate) : false;
-                  const disabled = isPast || isTooFar || !empAvailable;
+                  const disabled = isPast || isTooFar || isClosed || !empAvailable;
                   const isSelected = selectedDate === day && isSameDay(dayDate, selectedFullDate ?? new Date(0));
                   const isToday = isSameDay(dayDate, today);
 
@@ -538,9 +550,13 @@ export default function BookingPage() {
                           ? "bg-primary text-primary-foreground dark:text-background font-bold shadow-md"
                           : isToday
                             ? "border border-muted-foreground/40 text-foreground"
-                            : isPast || disabled
+                            : isPast || isTooFar
                               ? "text-muted-foreground/20 cursor-not-allowed"
-                              : "text-foreground hover:bg-accent"
+                              : isClosed
+                                ? "bg-muted/40 text-muted-foreground/30 cursor-not-allowed" // Zatmavime zatvorene dni
+                                : !empAvailable
+                                  ? "text-muted-foreground/20 cursor-not-allowed"
+                                  : "text-foreground hover:bg-accent"
                           }`}
                       >
                         {day}
