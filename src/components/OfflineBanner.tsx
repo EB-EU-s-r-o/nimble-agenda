@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { installAutoSync, runSync } from "@/lib/offline/sync";
-import { db } from "@/lib/offline/db";
+import { getDB } from "@/lib/offline/db";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wifi, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
@@ -18,11 +18,10 @@ export function OfflineBanner({ onConflictsClick }: OfflineBannerProps = {}) {
   useEffect(() => {
     const update = async () => {
       setOnline(navigator.onLine);
-      const p = await db.queue
-        .where("status")
-        .anyOf(["pending", "failed", "processing"])
-        .count();
-      const c = await db.queue.where("status").equals("conflict").count();
+      const db = await getDB();
+      const allQueue = await db.getAllFromIndex("queue", "status");
+      const p = allQueue.filter((i: any) => ["pending", "failed", "processing"].includes(i.status)).length;
+      const c = allQueue.filter((i: any) => i.status === "conflict").length;
       setPending(p);
       setConflicts(c);
     };

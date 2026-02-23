@@ -1,4 +1,4 @@
-import { db, type OfflineAction } from "./db";
+import { getDB, type OfflineAction } from "./db";
 import { supabase } from "@/integrations/supabase/client";
 
 function getAppointmentId(action: OfflineAction): string | undefined {
@@ -20,16 +20,16 @@ interface SyncResponse {
 }
 
 export async function runSync() {
+  const db = await getDB();
+
   // 1) PUSH pending actions
-  const pending = await db.queue
-    .where("status")
-    .anyOf(["pending", "failed"])
-    .toArray();
+  const allQueue = await db.getAllFromIndex("queue", "status");
+  const pending = allQueue.filter((i: any) => i.status === "pending" || i.status === "failed");
 
   if (pending.length) {
     for (const item of pending) {
       if (!item.id) continue;
-      await db.queue.update(item.id, { status: "processing", last_error: undefined });
+      await db.put("queue", { ...item, status: "processing", last_error: undefined });
 
       try {
         const { data, error } = await supabase.functions.invoke("sync-push", {
@@ -37,10 +37,7 @@ export async function runSync() {
         });
 
         if (error) {
-          await db.queue.update(item.id, {
-            status: "failed",
-            last_error: error.message || "sync failed",
-          });
+          await db.put("queue", { ...item, status: "failed", last_error: error.message || "sync failed" });
           continue;
         }
 
@@ -49,26 +46,21 @@ export async function runSync() {
         if (resp.ok) {
           if (resp.conflicts?.length) {
             const conflict = resp.conflicts[0];
-            await db.queue.update(item.id, {
+            await db.put("queue", {
+              ...item,
               status: "conflict",
               last_error: conflict.reason,
               conflict_suggestion: conflict.server_suggestion || undefined,
               appointment_id: getAppointmentId(item.action),
             });
           } else {
-            await db.queue.update(item.id, { status: "done" });
+            await db.put("queue", { ...item, status: "done" });
           }
         } else {
-          await db.queue.update(item.id, {
-            status: "failed",
-            last_error: resp.error || "sync failed",
-          });
+          await db.put("queue", { ...item, status: "failed", last_error: resp.error || "sync failed" });
         }
       } catch (e: any) {
-        await db.queue.update(item.id, {
-          status: "failed",
-          last_error: e?.message || "network error",
-        });
+        await db.put("queue", { ...item, status: "failed", last_error: e?.message || "network error" });
       }
     }
   }
@@ -80,9 +72,11 @@ export async function runSync() {
     });
 
     if (!error && data?.appointments && Array.isArray(data.appointments)) {
-      await db.appointments.bulkPut(
-        data.appointments.map((a: any) => ({ ...a, synced: true }))
-      );
+      const tx = db.transaction("appointments", "readwrite");
+      for (const a of data.appointments) {
+        await tx.store.put({ ...a, synced: true });
+      }
+      await tx.done;
     }
   } catch {
     // ignore pull errors when offline
