@@ -18,13 +18,15 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "" });
   const [smtpForm, setSmtpForm] = useState({ host: "", port: "", user: "", from: "", pass: "" });
+  const [smtpHasPassword, setSmtpHasPassword] = useState(false);
 
   useEffect(() => {
     if (profile) setProfileForm({ full_name: profile.full_name ?? "", phone: profile.phone ?? "" });
   }, [profile]);
 
   useEffect(() => {
-    supabase.from("businesses").select("*").eq("id", businessId).single().then(({ data }) => {
+    // Load business WITHOUT smtp_config – passwords should never reach the client
+    supabase.from("businesses").select("id, name, address, phone, email, timezone, lead_time_minutes, max_days_ahead, cancellation_hours, onboarding_completed, opening_hours, logo_url, slug, smtp_config").eq("id", businessId).single().then(({ data }) => {
       if (data) {
         setBusiness(data);
         const smtp = (data as any).smtp_config as any ?? {};
@@ -33,8 +35,9 @@ export default function SettingsPage() {
           port: smtp.port ?? "",
           user: smtp.user ?? "",
           from: smtp.from ?? "",
-          pass: smtp.pass ?? "",
+          pass: "", // Never load actual password to client
         });
+        setSmtpHasPassword(!!(smtp.pass));
       }
     });
   }, [businessId]);
@@ -71,12 +74,26 @@ export default function SettingsPage() {
 
   const saveSmtp = async () => {
     setSaving(true);
-    const { error } = await supabase.from("businesses").update({
-      smtp_config: smtpForm as any,
-    }).eq("id", businessId);
-    setSaving(false);
-    if (error) { toast.error("Chyba pri ukladaní SMTP"); return; }
-    toast.success("SMTP nastavenia uložené");
+    try {
+      const { data, error } = await supabase.functions.invoke("save-smtp-config", {
+        body: {
+          business_id: businessId,
+          host: smtpForm.host,
+          port: smtpForm.port,
+          user: smtpForm.user,
+          from: smtpForm.from,
+          pass: smtpForm.pass || undefined, // Only send if user typed a new password
+        },
+      });
+      if (error) { toast.error("Chyba pri ukladaní SMTP"); return; }
+      toast.success("SMTP nastavenia uložené");
+      if (smtpForm.pass) setSmtpHasPassword(true);
+      setSmtpForm((f) => ({ ...f, pass: "" })); // Clear password from memory
+    } catch {
+      toast.error("Chyba pri ukladaní SMTP");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -166,8 +183,8 @@ export default function SettingsPage() {
                   <Input value={smtpForm.from} onChange={(e) => setSmtpForm((f) => ({ ...f, from: e.target.value }))} placeholder="booking@example.com" />
                 </div>
                 <div className="space-y-1.5 col-span-2">
-                  <Label>Heslo</Label>
-                  <Input type="password" value={smtpForm.pass} onChange={(e) => setSmtpForm((f) => ({ ...f, pass: e.target.value }))} placeholder="••••••••" />
+                  <Label>Heslo {smtpHasPassword && <span className="text-xs text-muted-foreground ml-1">(uložené – zadajte nové pre zmenu)</span>}</Label>
+                  <Input type="password" value={smtpForm.pass} onChange={(e) => setSmtpForm((f) => ({ ...f, pass: e.target.value }))} placeholder={smtpHasPassword ? "••••••••" : "Zadajte heslo"} />
                 </div>
               </div>
               <Button onClick={saveSmtp} disabled={saving} size="sm">

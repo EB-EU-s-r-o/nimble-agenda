@@ -21,5 +21,8 @@ verify_jwt = false
 [functions.send-booking-email]
 verify_jwt = false
 
+[functions.save-smtp-config]
+verify_jwt = false
+
 [functions.seed-demo-accounts]
 verify_jwt = false
