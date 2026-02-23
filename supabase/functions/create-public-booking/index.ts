@@ -44,12 +44,49 @@ function validateInput(body: Record<string, unknown>): { error?: string } {
   return {};
 }
 
+// Simple in-memory IP rate limiter (per-isolate, resets on cold start)
+const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
+const IP_LIMIT = 15; // max requests per window
+const IP_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+function isIpRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipRequestCounts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    ipRequestCounts.set(ip, { count: 1, resetAt: now + IP_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > IP_LIMIT;
+}
+
+/** Normalize email: lowercase, strip + aliases for gmail-like providers */
+function normalizeEmail(email: string): string {
+  const [localRaw, domain] = email.toLowerCase().trim().split("@");
+  if (!domain) return email.toLowerCase().trim();
+  // Strip +alias for common providers
+  const local = localRaw.split("+")[0];
+  return `${local}@${domain}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // IP-based rate limiting
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? req.headers.get("cf-connecting-ip")
+      ?? "unknown";
+
+    if (isIpRateLimited(clientIp)) {
+      return new Response(
+        JSON.stringify({ error: "Príliš veľa požiadaviek. Skúste neskôr." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -77,27 +114,31 @@ serve(async (req) => {
     } = body as Record<string, string>;
 
     const sanitizedName = customer_name.trim().slice(0, 200);
-    const sanitizedEmail = customer_email.trim().toLowerCase().slice(0, 255);
+    const sanitizedEmail = normalizeEmail(customer_email).slice(0, 255);
     const sanitizedPhone = customer_phone ? String(customer_phone).trim().slice(0, 30) : null;
 
-    // 0b. Rate limit: max 5 bookings per email per hour
+    // 0b. Rate limit: max 5 bookings per normalized email per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count: recentCount } = await supabase
-      .from("appointments")
-      .select("id", { count: "exact", head: true })
+    const { data: matchingCustomers } = await supabase
+      .from("customers")
+      .select("id")
       .eq("business_id", business_id)
-      .gte("created_at", oneHourAgo)
-      .in("customer_id", 
-        // subquery: find customer ids with this email
-        (await supabase
-          .from("customers")
-          .select("id")
-          .eq("business_id", business_id)
-          .eq("email", sanitizedEmail)
-        ).data?.map((c: { id: string }) => c.id) ?? []
-      );
+      .eq("email", sanitizedEmail);
 
-    if ((recentCount ?? 0) >= 5) {
+    const customerIds = matchingCustomers?.map((c: { id: string }) => c.id) ?? [];
+
+    let recentCount = 0;
+    if (customerIds.length > 0) {
+      const { count } = await supabase
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", business_id)
+        .gte("created_at", oneHourAgo)
+        .in("customer_id", customerIds);
+      recentCount = count ?? 0;
+    }
+
+    if (recentCount >= 5) {
       return new Response(
         JSON.stringify({ error: "Príliš veľa rezervácií. Skúste neskôr." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
