@@ -10,6 +10,7 @@
 - [Rýchly štart](#rýchly-štart)
 - [Premenné prostredia](#premenné-prostredia)
 - [Auth na produkčnej doméne](#auth-na-produkčnej-doméne-bookingpapihairdesignsk)
+- [Práca na projekte (prístup odkiaľkoľvek)](#práca-na-projekte-prístup-odkiaľkoľvek)
 - [Návod na používanie](#návod-na-používanie)
   - [Zákazník](#zákazník--booking)
   - [Zamestnanec](#zamestnanec--adminmy)
@@ -129,6 +130,14 @@ VITE_SUPABASE_PUBLISHABLE_KEY=tvoj-anon-key
 ### Auth na produkčnej doméne (booking.papihairdesign.sk)
 
 Aby prihlásenie fungovalo na **https://booking.papihairdesign.sk**, treba v Supabase nastaviť Site URL a Redirect URLs (cez `.\supabase-push-auth-config.ps1` alebo ručne v Dashboarde). Kompletný postup, čo nerobiť (napr. nevkladať obsah `config.toml` do terminálu) a kde hľadať chybu: **[docs/AUTH-BOOKING-DOMAIN.md](docs/AUTH-BOOKING-DOMAIN.md)**.
+
+### Práca na projekte (prístup odkiaľkoľvek)
+
+- **Práca s kódom a deploy (GitHub + Vercel)**  
+  Stačí prihlásenie na GitHub a prístup k Vercel projektu. Môžeš klonovať repozitár, pushovať zmeny a spúšťať deploy odkiaľkoľvek. Env premenné sú nastavené v Vercel projekte; na novom počítači po clone pridaj lokálne `.env` podľa `.env.example` (ak potrebuješ lokálny vývoj).
+
+- **Plná správa Supabase projektu (auth URL, CLI)**  
+  Na správu Supabase z ktoréhokoľvek miesta (vrátane `supabase link` a `supabase config push`) musíš byť pridaný do **Supabase tímu**: Owner/Admin ťa pozve v **Supabase Dashboard → Organization → Team → Invite** (email). Po prijatí pozvánky môžeš odkiaľkoľvek spustiť `supabase login` a `.\supabase-push-auth-config.ps1`. Ak si v tíme a pozvánku si prijal, ďalšie nastavenie nie je potrebné.
 
 ---
 

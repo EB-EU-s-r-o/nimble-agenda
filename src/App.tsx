@@ -50,8 +50,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <CookieConsent />
       <BrowserRouter>
+        <CookieConsent />
         <AuthProvider>
           <Suspense fallback={<LazyFallback />}>
             <Routes>
@@ -65,6 +65,7 @@ const App = () => (
               <Route path="/diagnostics" element={<DiagnosticsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/privacy-policy" element={<TermsPage />} />
+              <Route path="/terms" element={<TermsPage />} />
               <Route
                 path="/reception"
                 element={
