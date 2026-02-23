@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ThemeProvider } from "next-themes";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
@@ -31,6 +32,9 @@ const CustomersPage = lazy(() => import("./pages/admin/CustomersPage"));
 const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
 const MySchedulePage = lazy(() => import("./pages/admin/MySchedulePage"));
 const ReceptionPage = lazy(() => import("./pages/ReceptionPage"));
+const DiagnosticsPage = lazy(() => import("./pages/DiagnosticsPage"));
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
 
 const LazyFallback = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -58,6 +62,9 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/offline" element={<OfflinePage />} />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/diagnostics" element={<DiagnosticsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/privacy-policy" element={<TermsPage />} />
               <Route
                 path="/reception"
                 element={
@@ -137,6 +144,7 @@ const App = () => (
           </Suspense>
         </AuthProvider>
       </BrowserRouter>
+      <SpeedInsights />
     </TooltipProvider>
   </QueryClientProvider>
   </ThemeProvider>

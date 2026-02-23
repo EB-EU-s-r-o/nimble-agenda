@@ -3,14 +3,20 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
+    "setup": "powershell -ExecutionPolicy Bypass -File ./setup.ps1",
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:responsive": "playwright test --config=e2e/playwright.config.ts",
+    "test:responsive:preview": "npm run build && playwright test --config=e2e/playwright.config.preview.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -45,6 +51,7 @@
     "@supabase/supabase-js": "^2.97.0",
     "@tanstack/react-query": "^5.83.0",
     "@types/react-big-calendar": "^1.16.3",
+    "@vercel/speed-insights": "^1.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -53,6 +60,7 @@
     "framer-motion": "^12.34.3",
     "idb": "^8.0.1",
     "input-otp": "^1.4.2",
+    "jimp": "^0.16.1",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
@@ -72,6 +80,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
@@ -87,6 +96,7 @@
     "jsdom": "^20.0.3",
     "lovable-tagger": "^1.1.13",
     "postcss": "^8.5.6",
+    "supabase": "^2.0.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",

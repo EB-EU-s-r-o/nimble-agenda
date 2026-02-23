@@ -139,15 +139,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-[100dvh] flex w-full max-w-full">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center border-b border-border px-4 bg-background sticky top-0 z-10">
-            <SidebarTrigger className="mr-3" />
-            <div className="flex-1" />
+        <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
+          <header className="min-h-[44px] h-12 flex items-center border-b border-border px-4 safe-x bg-background sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+            <SidebarTrigger className="mr-3 min-h-touch min-w-touch flex items-center justify-center" />
+            <div className="flex-1 min-w-0" />
             <ThemeToggle />
           </header>
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 p-4 sm:p-6 overflow-auto max-w-full safe-x">
             {children}
           </main>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import "@/styles/liquid-cookie.css";
 
 interface CookiePrefs {
@@ -78,8 +79,9 @@ export default function CookieConsent() {
 
         <div className="cookie-body" id="cookie-desc">
           Súbory cookie používame na zlepšenie vášho zážitku z prehliadania, poskytovanie
-          prispôsobených reklám alebo obsahu a analýzu našej návštevnosti. Kliknutím na
-          „Prijať všetko" súhlasíte s naším používaním súborov cookie.
+          prispôsobených reklám alebo obsahu a analýzu našej návštevnosti. Viac v{" "}
+          <Link to="/privacy" className="text-primary underline hover:no-underline">zásadách ochrany osobných údajov</Link>.
+          Kliknutím na „Prijať všetko" súhlasíte s naším používaním súborov cookie.
         </div>
 
         <div className="cookie-actions">

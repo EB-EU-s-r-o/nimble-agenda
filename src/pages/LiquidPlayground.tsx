@@ -8,8 +8,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { LogoIcon } from "@/components/LogoIcon";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useBusinessInfo } from "@/hooks/useBusinessInfo";
+import { useBusinessInfo, type OpenStatus, type PublicBusinessInfo, type NextOpening, type BusinessHourEntry } from "@/hooks/useBusinessInfo";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import "@/styles/expanding-cards.css";
 
 import cardBgHero from "@/assets/card-bg-hero.jpg";
@@ -38,9 +39,12 @@ const CATEGORIES: { label: string; icon: string; match: (name: string) => boolea
   { label: "Doplnkové služby", icon: "✨", match: (n) => /depilác|sviečk|maska/i.test(n) },
 ];
 
-function categorizeServices(services: any[]) {
+type ServiceRow = Tables<"services">;
+type ServiceItem = Pick<ServiceRow, "id" | "name_sk" | "price">;
+
+function categorizeServices(services: ServiceItem[]) {
   const assigned = new Set<string>();
-  const groups: { label: string; icon: string; items: any[] }[] = [];
+  const groups: { label: string; icon: string; items: ServiceItem[] }[] = [];
   for (const cat of CATEGORIES) {
     const items = services.filter((s) => !assigned.has(s.id) && cat.match(s.name_sk));
     items.forEach((s) => assigned.add(s.id));
@@ -69,13 +73,13 @@ const cards = [
 
 const contentAnim: any = {
   initial: { opacity: 0, y: 16, filter: "blur(4px)" },
-  animate: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] } },
-  exit:    { opacity: 0, y: -6, filter: "blur(2px)", transition: { duration: 0.35, ease: "easeIn" } },
+  animate: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] as const } },
+  exit:    { opacity: 0, y: -6, filter: "blur(2px)", transition: { duration: 0.35, ease: "easeIn" as const } },
 };
 
 /* ── Card content components ── */
 
-function BrandContent({ openStatus, navigate }: { openStatus: any; navigate: ReturnType<typeof useNavigate> }) {
+function BrandContent({ openStatus, navigate }: { openStatus: OpenStatus | null; navigate: ReturnType<typeof useNavigate> }) {
   const modeColors: Record<string, string> = {
     open:       "bg-green-500/15 text-green-400 border-green-500/30",
     closed:     "bg-red-500/15 text-red-400 border-red-500/30",
@@ -120,17 +124,17 @@ function BrandContent({ openStatus, navigate }: { openStatus: any; navigate: Ret
   );
 }
 
-function HoursContent({ info, openStatus, nextOpening }: { info: any; openStatus: any; nextOpening: any }) {
+function HoursContent({ info, openStatus, nextOpening }: { info: PublicBusinessInfo | null; openStatus: OpenStatus | null; nextOpening: NextOpening | null }) {
   if (!info) return <p className="text-sm text-muted-foreground">Načítavam...</p>;
 
   const hoursByDay = DAY_ORDER.map((day) => {
-    const entries = info.hours.filter((h: any) => h.day_of_week === day);
-    if (!entries.length) return { day, mode: "closed", time: "" };
+    const entries = info.hours.filter((h: BusinessHourEntry) => h.day_of_week === day);
+    if (!entries.length) return { day, mode: "closed" as const, time: "" };
     const mode = entries[0].mode;
     return {
       day, mode,
       time: mode === "open"
-        ? entries.map((e: any) => `${e.start_time.slice(0, 5)} – ${e.end_time.slice(0, 5)}`).join(", ")
+        ? entries.map((e: BusinessHourEntry) => `${e.start_time.slice(0, 5)} – ${e.end_time.slice(0, 5)}`).join(", ")
         : "",
     };
   });
@@ -159,7 +163,7 @@ function HoursContent({ info, openStatus, nextOpening }: { info: any; openStatus
   );
 }
 
-function PricesContent({ services }: { services: any[] }) {
+function PricesContent({ services }: { services: ServiceItem[] }) {
   const groups = categorizeServices(services);
   if (!groups.length) return <p className="text-sm text-muted-foreground">Načítavam cenník...</p>;
 
@@ -308,7 +312,7 @@ export default function LiquidPlayground() {
   const [activeCard, setActiveCard] = useState(0);
   const navigate = useNavigate();
   const { info, openStatus, nextOpening } = useBusinessInfo(DEMO_BUSINESS_ID);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
 
   useEffect(() => {
     supabase
@@ -329,12 +333,12 @@ export default function LiquidPlayground() {
   };
 
   return (
-    <div className="bg-background min-h-screen flex items-center justify-center relative overflow-hidden">
-      <div className="fixed top-4 right-4 z-50">
+    <div className="bg-background min-h-[100dvh] flex items-center justify-center relative overflow-hidden safe-y safe-x">
+      <div className="fixed top-4 right-4 z-50 safe-top safe-right" style={{ top: "max(1rem, env(safe-area-inset-top))" }}>
         <ThemeToggle />
       </div>
 
-      <div className="expanding-cards">
+      <div className="expanding-cards w-full max-w-full px-2 xs:px-3 sm:px-4">
         {cards.map((card, i) => {
           const isActive = activeCard === i;
           return (
@@ -384,8 +388,8 @@ export default function LiquidPlayground() {
         })}
       </div>
 
-      <div className="fixed bottom-4 left-0 right-0 text-center text-muted-foreground text-xs opacity-40 pointer-events-none">
-        © 2026 PAPI HAIR DESIGN · Košice
+      <div className="fixed bottom-4 left-0 right-0 text-center text-muted-foreground text-xs opacity-40 safe-x safe-bottom" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+        © 2026 PAPI HAIR DESIGN · Košice · <Link to="/privacy" className="text-muted-foreground hover:underline">Zásady ochrany osobných údajov</Link>
       </div>
     </div>
   );

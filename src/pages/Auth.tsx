@@ -159,11 +159,11 @@ export default function AuthPage() {
   const isLoading = loading || webauthnLoading;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4 relative">
-      <div className="fixed top-4 right-4 z-50">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-secondary to-background p-4 safe-x safe-y relative overflow-x-hidden">
+      <div className="fixed top-4 right-4 z-50 safe-top safe-right" style={{ top: "max(1rem, env(safe-area-inset-top))", right: "max(1rem, env(safe-area-inset-right))" }}>
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md min-w-0">
         <div className="flex items-center justify-center gap-2 mb-8">
           <LogoIcon size="md" />
           <span className="text-2xl font-bold text-foreground">PAPI HAIR DESIGN</span>

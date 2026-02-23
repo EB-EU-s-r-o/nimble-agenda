@@ -53,7 +53,7 @@ export default function DayTimeline({
 
   useEffect(() => {
     scrollToNow();
-  }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date]);
 
   // Current time indicator position
   const isToday = isSameDayInTZ(date, now, timezone);

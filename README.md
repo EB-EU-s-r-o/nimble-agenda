@@ -9,6 +9,7 @@
 - [Architektúra](#architektúra)
 - [Rýchly štart](#rýchly-štart)
 - [Premenné prostredia](#premenné-prostredia)
+- [Auth na produkčnej doméne](#auth-na-produkčnej-doméne-bookingpapihairdesignsk)
 - [Návod na používanie](#návod-na-používanie)
   - [Zákazník](#zákazník--booking)
   - [Zamestnanec](#zamestnanec--adminmy)
@@ -67,19 +68,33 @@ React 18 + Vite + TypeScript
 
 ### Inštalácia
 
+**Automatická príprava prostredia (odporúčané):**
+
+```sh
+# Z koreňa projektu (Node.js 18+ potrebný)
+npm run setup
+# alebo priamo:
+.\setup.ps1
+```
+
+Skript skontroluje Node.js, nainštaluje závislosti a vytvorí `.env` z `.env.example` (ak ešte neexistuje).
+
+**Manuálne:**
+
 ```sh
 # 1. Klonuj repozitár
 git clone https://github.com/EB-EU-s-r-o/nimble-agenda.git
 cd nimble-agenda
 
-# 2. Nainštaluj závislosti
+# 2. (Voliteľne) Nastav Node 18+ cez nvm: nvm use
+# 3. Nainštaluj závislosti
 npm install
 
-# 3. Nastav premenné prostredia
-cp .env.example .env
+# 4. Nastav premenné prostredia
+cp .env.example .env   # na Windows: copy .env.example .env
 # Vyplň hodnoty v .env
 
-# 4. Spusti vývojový server
+# 5. Spusti vývojový server
 npm run dev
 ```
 
@@ -110,6 +125,10 @@ VITE_SUPABASE_PUBLISHABLE_KEY=tvoj-anon-key
 ```
 
 > Hodnoty nájdeš v Supabase dashboarde pod **Settings → API**.
+
+### Auth na produkčnej doméne (booking.papihairdesign.sk)
+
+Aby prihlásenie fungovalo na **https://booking.papihairdesign.sk**, treba v Supabase nastaviť Site URL a Redirect URLs (cez `.\supabase-push-auth-config.ps1` alebo ručne v Dashboarde). Kompletný postup, čo nerobiť (napr. nevkladať obsah `config.toml` do terminálu) a kde hľadať chybu: **[docs/AUTH-BOOKING-DOMAIN.md](docs/AUTH-BOOKING-DOMAIN.md)**.
 
 ---
 

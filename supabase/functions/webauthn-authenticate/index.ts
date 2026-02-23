@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
         .eq("id", passkey.id);
 
       // Generate a magic link for the user (passwordless sign-in)
-      const userEmail = (passkey as any).profiles?.email;
+      const userEmail = (passkey as { profiles?: { email?: string } }).profiles?.email;
       if (!userEmail) {
         return new Response(JSON.stringify({ error: "No email associated" }), {
           status: 400,

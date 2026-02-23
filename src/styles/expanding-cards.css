@@ -228,6 +228,7 @@
     height: 100dvh;
     padding: 12px;
     gap: 8px;
+    max-width: 100%;
   }
 
   .expanding-cards__option {
@@ -253,5 +254,29 @@
 
   .expanding-cards__content {
     padding: 20px 16px;
+  }
+}
+
+/* Extra small phones (iPhone SE, small Android) */
+@media screen and (max-width: 374px) {
+  .expanding-cards {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .expanding-cards__option {
+    min-height: 48px;
+  }
+
+  .expanding-cards__content {
+    padding: 16px 12px;
+  }
+
+  .expanding-cards__label-main {
+    font-size: 1rem;
+  }
+
+  .expanding-cards__label-sub {
+    font-size: 0.75rem;
   }
 }

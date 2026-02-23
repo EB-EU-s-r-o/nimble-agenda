@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { generateSlots, getEffectiveIntervals, type BusinessHours, type EmployeeSchedule, type ExistingAppointment, type BusinessHourEntry, type DateOverrideEntry } from "@/lib/availability";
 import { toast } from "sonner";
 import { format, addDays, startOfDay, isSameDay, isAfter, isBefore, getDaysInMonth, getDay, startOfMonth } from "date-fns";
@@ -48,6 +49,12 @@ interface EmployeeRow {
   photo_url: string | null;
 }
 
+interface BookingResult {
+  claim_token?: string;
+  customer_email?: string;
+  customer_name?: string;
+}
+
 export default function BookingPage() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
@@ -55,7 +62,7 @@ export default function BookingPage() {
   // Data states
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
-  const [business, setBusiness] = useState<any>(null);
+  const [business, setBusiness] = useState<Tables<"businesses"> | null>(null);
   const [businessHourEntries, setBusinessHourEntries] = useState<BusinessHourEntry[]>([]);
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
@@ -77,7 +84,7 @@ export default function BookingPage() {
   const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [bookingDone, setBookingDone] = useState(false);
-  const [bookingResult, setBookingResult] = useState<any>(null);
+  const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
 
   // Availability
   const [availableSlots, setAvailableSlots] = useState<Date[]>([]);
@@ -96,18 +103,18 @@ export default function BookingPage() {
       setBusiness(bizRes.data);
       setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
       setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
-      setBusinessHourEntries((bhRes.data ?? []).map((h: any) => ({
+      setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
         day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
       })));
-      setDateOverrides((bdoRes.data ?? []).map((o: any) => ({
+      setDateOverrides((bdoRes.data ?? []).map((o: Tables<"business_date_overrides">) => ({
         override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
       })));
 
-      const empIds = (empRes.data ?? []).map((e: any) => e.id);
+      const empIds = (empRes.data ?? []).map((e: Tables<"employees">) => e.id);
       if (empIds.length) {
         const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
         const map: Record<string, EmployeeSchedule[]> = {};
-        (scheds ?? []).forEach((s: any) => {
+        (scheds ?? []).forEach((s: Tables<"schedules">) => {
           if (!map[s.employee_id]) map[s.employee_id] = [];
           map[s.employee_id].push(s);
         });
@@ -116,7 +123,7 @@ export default function BookingPage() {
 
       const { data: esMap } = await (supabase as any).from("employee_services").select("employee_id, service_id");
       const eMap: Record<string, string[]> = {};
-      (esMap ?? []).forEach((item: any) => {
+      (esMap ?? []).forEach((item: Tables<"employee_services">) => {
         if (!eMap[item.employee_id]) eMap[item.employee_id] = [];
         eMap[item.employee_id].push(item.service_id);
       });
@@ -180,7 +187,7 @@ export default function BookingPage() {
       date,
       businessHourEntries,
       dateOverrides,
-      business?.opening_hours
+      business?.opening_hours as BusinessHours | undefined
     );
     return !!(intervals && intervals.length > 0);
   }, [businessHourEntries, dateOverrides, business]);
@@ -374,9 +381,9 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="min-h-screen font-sans pb-24 max-w-md mx-auto shadow-2xl relative overflow-hidden transition-colors duration-300 bg-background text-foreground">
+    <div className="min-h-[100dvh] font-sans pb-24 max-w-md w-full mx-auto shadow-2xl relative overflow-x-hidden transition-colors duration-300 bg-background text-foreground safe-x">
       {/* Header */}
-      <header className="sticky top-0 z-50 px-4 py-3 flex items-center justify-between bg-background/90 border-b border-border backdrop-blur-sm">
+      <header className="sticky top-0 z-50 px-4 py-3 safe-x flex items-center justify-between bg-background/90 border-b border-border backdrop-blur-sm pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex flex-col">
           <span className="text-lg font-bold tracking-widest uppercase font-serif">
             PAPI <GoldText>HAIR</GoldText> DESIGN

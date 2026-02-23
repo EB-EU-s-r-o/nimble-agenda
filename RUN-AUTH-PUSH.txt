@@ -1,0 +1,21 @@
+# ==============================================================
+# Push auth konfigurácie do Supabase (Site URL + Redirect URLs)
+# ==============================================================
+# Pri "supabase login" vlož token z: https://supabase.com/dashboard/account/tokens
+# NEVKLADAJ do terminálu obsah súboru config.toml – len tieto príkazy.
+# Ak link/config push zlyha (privileges): admin ta musi pozvat v Supabase
+# Dashboard -> Organization -> Team: https://supabase.com/dashboard/org/_/team
+# ==============================================================
+#
+# --- PowerShell (odporúčané) ---
+# Otvor PowerShell, skopíruj príkazy jeden po druhom:
+#
+cd C:\Users\42195\Documents\papihd-booking-22-2\doc\nimble-agenda
+supabase login
+.\supabase-push-auth-config.ps1
+#
+# --- Git Bash ---
+# Ak používaš Git Bash a si už v doc/nimble-agenda:
+#
+# supabase login
+# powershell.exe -File ./supabase-push-auth-config.ps1
