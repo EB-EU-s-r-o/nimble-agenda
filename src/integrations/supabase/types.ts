@@ -733,9 +733,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ensure_my_firebase_profile: {
+        Args: { p_email?: string; p_full_name?: string }
+        Returns: string
+      }
       get_employee_id: {
         Args: { _business_id: string; _user_id: string }
         Returns: string
+      }
+      get_my_memberships: {
+        Args: Record<string, never>
+        Returns: Database["public"]["Tables"]["memberships"]["Row"][]
+      }
+      get_my_profile: {
+        Args: Record<string, never>
+        Returns: Database["public"]["Tables"]["profiles"]["Row"][]
       }
       has_role: {
         Args: {

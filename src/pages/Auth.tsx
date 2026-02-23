@@ -2,6 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import { getFirebaseAuth, isFirebaseAuthEnabled } from "@/integrations/firebase/config";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,17 +79,26 @@ export default function AuthPage() {
     }
     setErrors({});
     setLoading(true);
+    if (isFirebaseAuthEnabled()) {
+      const auth = getFirebaseAuth();
+      if (!auth) { setLoading(false); return; }
+      try {
+        await signInWithEmailAndPassword(auth, form.email, form.password);
+        if (!rememberMe) sessionStorage.setItem("auth_session_tab_only", "true");
+        else sessionStorage.removeItem("auth_session_tab_only");
+        navigate("/admin");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Prihlásenie zlyhalo";
+        toast.error(msg);
+      }
+      setLoading(false);
+      return;
+    }
     const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
     setLoading(false);
     if (error) { toast.error("Prihlásenie zlyhalo: " + error.message); return; }
-
-    // If not "remember me", set a flag to clear session on tab close
-    if (!rememberMe) {
-      sessionStorage.setItem("auth_session_tab_only", "true");
-    } else {
-      sessionStorage.removeItem("auth_session_tab_only");
-    }
-
+    if (!rememberMe) sessionStorage.setItem("auth_session_tab_only", "true");
+    else sessionStorage.removeItem("auth_session_tab_only");
     navigate("/admin");
   };
 
@@ -96,6 +113,20 @@ export default function AuthPage() {
     }
     setErrors({});
     setLoading(true);
+    if (isFirebaseAuthEnabled()) {
+      const auth = getFirebaseAuth();
+      if (!auth) { setLoading(false); return; }
+      try {
+        await createUserWithEmailAndPassword(auth, form.email, form.password);
+        toast.success("Registrácia úspešná.");
+        navigate("/admin");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Registrácia zlyhala";
+        toast.error(msg);
+      }
+      setLoading(false);
+      return;
+    }
     const { data: signUpData, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -103,12 +134,9 @@ export default function AuthPage() {
     });
     setLoading(false);
     if (error) { toast.error("Registrácia zlyhala: " + error.message); return; }
-
     if (claimToken && signUpData?.session) {
       try {
-        await supabase.functions.invoke("claim-booking", {
-          body: { claim_token: claimToken },
-        });
+        await supabase.functions.invoke("claim-booking", { body: { claim_token: claimToken } });
         sessionStorage.removeItem("claim_token");
         toast.success("Registrácia úspešná! Rezervácia bola prepojená s vaším účtom.");
         navigate("/admin");
@@ -117,17 +145,29 @@ export default function AuthPage() {
         sessionStorage.removeItem("claim_token");
       }
     }
-
     toast.success("Registrácia úspešná! Skontrolujte email pre potvrdenie.");
     setMode("login");
   };
 
   const handleGoogle = async () => {
     setLoading(true);
+    if (isFirebaseAuthEnabled()) {
+      const auth = getFirebaseAuth();
+      if (!auth) { setLoading(false); return; }
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+        navigate("/admin");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Google prihlásenie zlyhalo");
+      }
+      setLoading(false);
+      return;
+    }
     const { error } = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin + "/admin",
     });
-    if (error) { toast.error("Google prihlásenie zlyhalo"); setLoading(false); }
+    if (error) toast.error("Google prihlásenie zlyhalo");
+    setLoading(false);
   };
 
   const handleApple = async () => {
@@ -147,6 +187,19 @@ export default function AuthPage() {
     e.preventDefault();
     if (!form.email) { setErrors({ email: "Zadajte email" }); return; }
     setLoading(true);
+    if (isFirebaseAuthEnabled()) {
+      const auth = getFirebaseAuth();
+      if (!auth) { setLoading(false); return; }
+      try {
+        await sendPasswordResetEmail(auth, form.email);
+        toast.success("Email na obnovenie hesla bol odoslaný");
+        setMode("login");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Odoslanie zlyhalo");
+      }
+      setLoading(false);
+      return;
+    }
     const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
       redirectTo: window.location.origin + "/reset-password",
     });

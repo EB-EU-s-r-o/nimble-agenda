@@ -42,10 +42,10 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 async function fetchProfileViaRPC(): Promise<{ profile: Profile | null; memberships: Membership[] }> {
-  const { data: profileData } = await supabase.rpc("get_my_profile").select("*").single();
-  const { data: membershipData } = await supabase.rpc("get_my_memberships").select("*");
-  const profile = profileData as Profile | null;
-  const memberships = (membershipData ?? []) as Membership[];
+  const { data: profileRows } = await supabase.rpc("get_my_profile");
+  const { data: membershipRows } = await supabase.rpc("get_my_memberships");
+  const profile = Array.isArray(profileRows) && profileRows[0] ? profileRows[0] : null;
+  const memberships = Array.isArray(membershipRows) ? membershipRows : [];
   return { profile, memberships };
 }
 
@@ -74,9 +74,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const refreshProfile = useCallback(async () => {
+    if (isFirebaseAuthEnabled()) {
+      const { profile: p, memberships: m } = await fetchProfileViaRPC();
+      setProfile(p);
+      setMemberships(m ?? []);
+      return;
+    }
     if (user) await fetchProfile(user.id);
-    else if (isFirebaseAuthEnabled() && profile) await fetchProfile(profile.id);
-  }, [user, profile, fetchProfile]);
+  }, [user, fetchProfile]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {

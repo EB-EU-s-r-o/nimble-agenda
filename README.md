@@ -10,7 +10,9 @@
 - [Rýchly štart](#rýchly-štart)
 - [Premenné prostredia](#premenné-prostredia)
 - [Auth na produkčnej doméne](#auth-na-produkčnej-doméne-bookingpapihairdesignsk)
+- [Firebase Auth (voliteľné)](#firebase-auth-voliteľné)
 - [Práca na projekte (prístup odkiaľkoľvek)](#práca-na-projekte-prístup-odkiaľkoľvek)
+- [Vercel Hobby a súkromný org repozitár](#vercel-hobby-a-súkromný-org-repozitár)
 - [Návod na používanie](#návod-na-používanie)
   - [Zákazník](#zákazník--booking)
   - [Zamestnanec](#zamestnanec--adminmy)
@@ -131,6 +133,10 @@ VITE_SUPABASE_PUBLISHABLE_KEY=tvoj-anon-key
 
 Aby prihlásenie fungovalo na **https://booking.papihairdesign.sk**, treba v Supabase nastaviť Site URL a Redirect URLs (cez `.\supabase-push-auth-config.ps1` alebo ručne v Dashboarde). Kompletný postup, čo nerobiť (napr. nevkladať obsah `config.toml` do terminálu) a kde hľadať chybu: **[docs/AUTH-BOOKING-DOMAIN.md](docs/AUTH-BOOKING-DOMAIN.md)**.
 
+### Firebase Auth (voliteľné)
+
+Ak chceš použiť **Firebase Authentication** namiesto Supabase Auth (email/heslo, Google), nastav v `.env` premenné `VITE_FIREBASE_*` a v Supabase povol Third-Party Auth (Firebase). Plný návod: **[docs/FIREBASE-AUTH-SETUP.md](docs/FIREBASE-AUTH-SETUP.md)**.
+
 ### Práca na projekte (prístup odkiaľkoľvek)
 
 - **Práca s kódom a deploy (GitHub + Vercel)**  
@@ -138,6 +144,14 @@ Aby prihlásenie fungovalo na **https://booking.papihairdesign.sk**, treba v Sup
 
 - **Plná správa Supabase projektu (auth URL, CLI)**  
   Na správu Supabase z ktoréhokoľvek miesta (vrátane `supabase link` a `supabase config push`) musíš byť pridaný do **Supabase tímu**: Owner/Admin ťa pozve v **Supabase Dashboard → Organization → Team → Invite** (email). Po prijatí pozvánky môžeš odkiaľkoľvek spustiť `supabase login` a `.\supabase-push-auth-config.ps1`. Ak si v tíme a pozvánku si prijal, ďalšie nastavenie nie je potrebné.
+
+Ak na produkcii (Vercel) **/booking neukazuje služby** a diagnostika hlási chýbajúce tabuľky/RPC, pozri **[docs/FIX-PRODUCTION.md](docs/FIX-PRODUCTION.md)**.
+
+Ak Vercel zobrazí *"The repository is private and owned by an organization, which is not supported on the Hobby plan"*, pozri **[docs/VERCEL-HOBBY-ORG-REPO.md](docs/VERCEL-HOBBY-ORG-REPO.md)** (prevod repa na osobný účet alebo nové osobné repo).
+
+### Vercel Hobby a súkromný org repozitár
+
+Vercel Hobby nepodporuje deploy zo súkromného repozitára vlastneného **organizáciou**. Ak pripájaš taký repo, dostaneš chybu. Riešenie: mať repozitár pod osobným účtom (prevod vlastníctva alebo nové osobné repo). Detailný postup a pomocné skripty: **[docs/VERCEL-HOBBY-ORG-REPO.md](docs/VERCEL-HOBBY-ORG-REPO.md)**.
 
 ---
 

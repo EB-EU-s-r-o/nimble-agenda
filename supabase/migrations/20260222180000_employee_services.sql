@@ -22,7 +22,7 @@ USING (
   EXISTS (
     SELECT 1 FROM public.employees e 
     WHERE e.id = employee_services.employee_id 
-    AND (SELECT public.is_business_admin(e.business_id, auth.uid()))
+    AND public.is_business_admin(auth.uid(), e.business_id)
   )
 );
 

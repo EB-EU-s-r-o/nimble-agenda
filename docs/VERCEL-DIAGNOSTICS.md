@@ -38,3 +38,27 @@ Tento dokument obsahuje checklist na overenie konfigurácie pred a po nasadení 
   - **Project URL** → hodnota pre `VITE_SUPABASE_URL` (napr. `https://eudwjgdijylsgcnncxeg.supabase.co`).
   - **anon public** key → hodnota pre `VITE_SUPABASE_PUBLISHABLE_KEY`.
 - Konfigurácia auth (Site URL, Redirect URLs): pozri [AUTH-BOOKING-DOMAIN.md](AUTH-BOOKING-DOMAIN.md).
+
+---
+
+## Ak /booking neukazuje služby (404, 400)
+
+### A) Nesprávny Supabase projekt (env ukazuje na iný host)
+
+Ak v konzole vidíš chyby na `dssdiqojkktzfuwoulbq.supabase.co` alebo iný host ako `eudwjgdijylsgcnncxeg.supabase.co`:
+
+1. **Príčina:** Vercel env premenné ukazujú na nesprávny Supabase projekt.
+2. **Riešenie:** Nastav v Vercel `VITE_SUPABASE_URL` a `VITE_SUPABASE_PUBLISHABLE_KEY` z projektu `eudwjgdijylsgcnncxeg` (Supabase Dashboard → Settings → API). Redeploy.
+
+### B) Tabuľky/RPC chýbajú („Could not find the table … in the schema cache“)
+
+Ak diagnostika hlási „Could not find the table 'public.businesses'“ alebo „Could not find the function … rpc_get_public_business_info“:
+
+1. **Príčina:** App volá Supabase projekt, na ktorý ukazujú Vercel env premenné, ale v tom projekte nie sú spustené migrácie (tabuľky a RPC sú v projekte **eudwjgdijylsgcnncxeg** z tohto repa).
+2. **Riešenie 1 – prepni env na projekt s migráciami (najrýchlejšie):**
+   - Vercel → tvoj projekt → **Settings** → **Environment Variables**.
+   - Nastav **VITE_SUPABASE_URL** = `https://eudwjgdijylsgcnncxeg.supabase.co`.
+   - Nastav **VITE_SUPABASE_PUBLISHABLE_KEY** = hodnota **anon public** z Supabase projektu **eudwjgdijylsgcnncxeg** (Supabase Dashboard → ten projekt → Settings → API).
+   - Ulož, potom **Deployments** → posledný deployment → **Redeploy**.
+3. **Riešenie 2 – spusti migrácie na projekte, ktorý už používaš (napr. dssdiqojkktzfuwoulbq):** Pozri [MIGRATIONS-TERMINAL.md](MIGRATIONS-TERMINAL.md) (CLI alebo psql) alebo [MIGRATIONS-SQL-EDITOR.md](MIGRATIONS-SQL-EDITOR.md) (SQL Editor – skopíruj `supabase/migrations/run-all.sql`).
+4. **Overenie:** Otvor `/diagnostics?key=diagnostics` – DB a RPC by mali byť OK. Potom `/booking` – služby sa zobrazia.
