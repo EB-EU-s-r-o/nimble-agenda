@@ -90,7 +90,7 @@ export default function EmployeesPage() {
 
     // Load employee services
     const loadEmpServices = async () => {
-      const { data } = await supabase.from("employee_services").select("service_id").eq("employee_id", emp.id);
+      const { data } = await (supabase as any).from("employee_services").select("service_id").eq("employee_id", emp.id);
       setSelectedServiceIds((data ?? []).map(d => d.service_id));
     };
     loadEmpServices();
@@ -132,13 +132,13 @@ export default function EmployeesPage() {
       if (rows.length) await supabase.from("schedules").insert(rows);
 
       // 2. Save service assignments
-      await supabase.from("employee_services").delete().eq("employee_id", empId);
+      await (supabase as any).from("employee_services").delete().eq("employee_id", empId);
       if (selectedServiceIds.length) {
         const serviceRows = selectedServiceIds.map(sid => ({
           employee_id: empId as string,
           service_id: sid
         }));
-        await supabase.from("employee_services").insert(serviceRows);
+        await (supabase as any).from("employee_services").insert(serviceRows);
       }
     }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { db, type QueueItem, type OfflineAppointment } from "@/lib/offline/db";
+import { getDB, type QueueItem, type OfflineAppointment } from "@/lib/offline/db";
 import { updateAppointmentOffline, enqueueAction } from "@/lib/offline/reception";
 import {
   Dialog,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowRight, Clock, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface ConflictResolutionDialogProps {
@@ -33,14 +33,16 @@ export function ConflictResolutionDialog({
   const [loading, setLoading] = useState(false);
 
   const loadConflicts = async () => {
-    const items = await db.queue.where("status").equals("conflict").toArray();
+    const db = await getDB();
+    const allQueue = await db.getAllFromIndex("queue", "status");
+    const items = allQueue.filter((i: any) => i.status === "conflict");
     const result: ConflictItem[] = [];
 
     for (const item of items) {
       const apptId = item.appointment_id || getPayloadId(item.action);
       let appointment: OfflineAppointment | undefined;
       if (apptId) {
-        appointment = await db.appointments.get(apptId);
+        appointment = await db.get("appointments", apptId);
       }
       result.push({ queueItem: item, appointment });
     }
@@ -63,16 +65,15 @@ export function ConflictResolutionDialog({
         return;
       }
 
-      // Update local appointment with suggested slot
       await updateAppointmentOffline({
         id: apptId,
         start_at: suggestion.start_at,
         end_at: suggestion.end_at,
       });
 
-      // Remove the conflicting queue item
       if (conflict.queueItem.id) {
-        await db.queue.delete(conflict.queueItem.id);
+        const db = await getDB();
+        await db.delete("queue", conflict.queueItem.id);
       }
 
       toast.success("Rezervácia presunutá na navrhovaný čas");
@@ -84,9 +85,9 @@ export function ConflictResolutionDialog({
   };
 
   const handleDismissConflict = async (conflict: ConflictItem) => {
-    // Mark as done (user chose to ignore)
     if (conflict.queueItem.id) {
-      await db.queue.delete(conflict.queueItem.id);
+      const db = await getDB();
+      await db.delete("queue", conflict.queueItem.id);
     }
     toast.info("Konflikt ignorovaný");
     await loadConflicts();
@@ -95,11 +96,11 @@ export function ConflictResolutionDialog({
 
   const handleRetry = async (conflict: ConflictItem) => {
     if (conflict.queueItem.id) {
-      await db.queue.update(conflict.queueItem.id, {
-        status: "pending",
-        last_error: undefined,
-        conflict_suggestion: undefined,
-      });
+      const db = await getDB();
+      const item = await db.get("queue", conflict.queueItem.id);
+      if (item) {
+        await db.put("queue", { ...item, status: "pending", last_error: undefined, conflict_suggestion: undefined });
+      }
     }
     toast.info("Zaradené na opätovný sync");
     await loadConflicts();
@@ -107,21 +108,14 @@ export function ConflictResolutionDialog({
   };
 
   const formatTime = (iso: string) => {
-    return new Date(iso).toLocaleTimeString("sk", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return new Date(iso).toLocaleTimeString("sk", { hour: "2-digit", minute: "2-digit" });
   };
 
   const formatDate = (iso: string) => {
-    return new Date(iso).toLocaleDateString("sk", {
-      day: "numeric",
-      month: "short",
-    });
+    return new Date(iso).toLocaleDateString("sk", { day: "numeric", month: "short" });
   };
 
   if (conflicts.length === 0 && open) {
-    // Auto-close when no conflicts
     setTimeout(() => onOpenChange(false), 300);
   }
 
@@ -186,7 +180,6 @@ function ConflictCard({
 
   return (
     <div className="border border-destructive/30 rounded-lg p-3 bg-destructive/5 space-y-2">
-      {/* Conflict info */}
       <div className="space-y-1">
         {appointment && (
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -198,17 +191,14 @@ function ConflictCard({
             <span>{appointment.customer_name}</span>
           </div>
         )}
-
         <p className="text-xs text-destructive font-medium">
           {queueItem.last_error || "Neznámy konflikt"}
         </p>
-
         <Badge variant="outline" className="text-[10px]">
           {queueItem.action.type.replace("APPOINTMENT_", "")}
         </Badge>
       </div>
 
-      {/* Suggestion */}
       {suggestion && (
         <div className="bg-primary/10 border border-primary/20 rounded-md p-2 space-y-1">
           <p className="text-xs font-medium text-primary flex items-center gap-1">
@@ -222,37 +212,17 @@ function ConflictCard({
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex gap-1.5 pt-1">
         {suggestion && (
-          <Button
-            size="sm"
-            className="h-7 text-xs flex-1"
-            onClick={onAccept}
-            disabled={loading}
-          >
+          <Button size="sm" className="h-7 text-xs flex-1" onClick={onAccept} disabled={loading}>
             <ArrowRight className="w-3 h-3 mr-1" />
             Presunúť
           </Button>
         )}
-
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-xs flex-1"
-          onClick={onRetry}
-          disabled={loading}
-        >
+        <Button size="sm" variant="outline" className="h-7 text-xs flex-1" onClick={onRetry} disabled={loading}>
           Skúsiť znova
         </Button>
-
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 text-xs text-muted-foreground"
-          onClick={onDismiss}
-          disabled={loading}
-        >
+        <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" onClick={onDismiss} disabled={loading}>
           <X className="w-3 h-3" />
         </Button>
       </div>

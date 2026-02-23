@@ -114,7 +114,7 @@ export default function BookingPage() {
         setSchedules(map);
       }
 
-      const { data: esMap } = await supabase.from("employee_services").select("employee_id, service_id");
+      const { data: esMap } = await (supabase as any).from("employee_services").select("employee_id, service_id");
       const eMap: Record<string, string[]> = {};
       (esMap ?? []).forEach((item: any) => {
         if (!eMap[item.employee_id]) eMap[item.employee_id] = [];

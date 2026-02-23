@@ -1,4 +1,4 @@
-import { db, type OfflineAppointment, type QueueItem } from "./db";
+import { getDB, type OfflineAppointment, type QueueItem } from "./db";
 
 function isoNow() {
   return new Date().toISOString();
@@ -9,20 +9,21 @@ function makeKey(prefix: string) {
 }
 
 export async function upsertLocalAppointment(appt: OfflineAppointment) {
-  await db.appointments.put(appt);
+  const db = await getDB();
+  await db.put("appointments", appt);
 }
 
 export async function listLocalAppointmentsForDay(dayISO: string) {
+  const db = await getDB();
+  const all = await db.getAllFromIndex("appointments", "start_at");
   const start = `${dayISO}T00:00:00.000Z`;
   const end = `${dayISO}T23:59:59.999Z`;
-  return db.appointments
-    .where("start_at")
-    .between(start, end, true, true)
-    .toArray();
+  return all.filter((a: any) => a.start_at >= start && a.start_at <= end);
 }
 
 export async function enqueueAction(action: QueueItem["action"], appointmentId?: string) {
-  await db.queue.add({
+  const db = await getDB();
+  await db.add("queue", {
     action,
     status: "pending",
     appointment_id: appointmentId,
@@ -49,7 +50,8 @@ export async function createAppointmentOffline(
 export async function updateAppointmentOffline(
   patch: { id: string } & Partial<OfflineAppointment>
 ): Promise<OfflineAppointment> {
-  const existing = await db.appointments.get(patch.id);
+  const db = await getDB();
+  const existing = await db.get("appointments", patch.id);
   if (!existing) throw new Error("Appointment not found locally");
 
   const merged: OfflineAppointment = {
@@ -72,7 +74,8 @@ export async function updateAppointmentOffline(
 }
 
 export async function cancelAppointmentOffline(id: string, reason?: string) {
-  const existing = await db.appointments.get(id);
+  const db = await getDB();
+  const existing = await db.get("appointments", id);
   if (!existing) throw new Error("Appointment not found locally");
 
   const updated: OfflineAppointment = {

@@ -1,4 +1,4 @@
-import Dexie, { type Table } from "dexie";
+import { openDB, type IDBPDatabase } from "idb";
 
 export interface OfflineAppointment {
   id: string;
@@ -32,23 +32,33 @@ export interface QueueItem {
   status: "pending" | "processing" | "done" | "failed" | "conflict";
   last_error?: string;
   conflict_suggestion?: ConflictSuggestion;
-  appointment_id?: string; // reference to the appointment this action affects
+  appointment_id?: string;
   created_at: string;
 }
 
-class OfflineDB extends Dexie {
-  appointments!: Table<OfflineAppointment, string>;
-  queue!: Table<QueueItem, number>;
-  meta!: Table<{ key: string; value: string }, string>;
+const DB_NAME = "booking_offline_db";
+const DB_VERSION = 1;
 
-  constructor() {
-    super("booking_offline_db");
-    this.version(1).stores({
-      appointments: "id, start_at, end_at, status, updated_at",
-      queue: "++id, status, created_at",
-      meta: "key",
+let dbPromise: Promise<IDBPDatabase> | null = null;
+
+export function getDB() {
+  if (!dbPromise) {
+    dbPromise = openDB(DB_NAME, DB_VERSION, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains("appointments")) {
+          const aptStore = db.createObjectStore("appointments", { keyPath: "id" });
+          aptStore.createIndex("start_at", "start_at");
+          aptStore.createIndex("status", "status");
+        }
+        if (!db.objectStoreNames.contains("queue")) {
+          const qStore = db.createObjectStore("queue", { keyPath: "id", autoIncrement: true });
+          qStore.createIndex("status", "status");
+        }
+        if (!db.objectStoreNames.contains("meta")) {
+          db.createObjectStore("meta", { keyPath: "key" });
+        }
+      },
     });
   }
+  return dbPromise;
 }
-
-export const db = new OfflineDB();
