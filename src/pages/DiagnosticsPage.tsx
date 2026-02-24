@@ -27,8 +27,9 @@ export default function DiagnosticsPage() {
     searchParams.get("key") === DIAGNOSTICS_KEY;
 
   useEffect(() => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const ok = Boolean(url && String(url).trim() !== "");
+    const raw = import.meta.env.VITE_SUPABASE_URL;
+    const url = (raw ?? "").replace(/^\uFEFF/, "").trim();
+    const ok = Boolean(url !== "");
     setEnvSet(ok);
     if (url) {
       try {

@@ -3,8 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { getFirebaseAuth, isFirebaseAuthEnabled } from "@/integrations/firebase/config";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const stripBom = (s: string | undefined) => (s ?? "").replace(/^\uFEFF/, "").trim();
+const SUPABASE_URL = stripBom(import.meta.env.VITE_SUPABASE_URL);
+const SUPABASE_PUBLISHABLE_KEY = stripBom(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
 const supabaseOptions: Parameters<typeof createClient<Database>>[2] = {
   auth: {

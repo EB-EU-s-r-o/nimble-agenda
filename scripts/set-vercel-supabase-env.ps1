@@ -20,6 +20,7 @@ Get-Content $envFile | ForEach-Object {
         $key = "VITE_SUPABASE_$($matches[1])"
         $val = $matches[2].Trim()
         if ($val -match '#') { $val = ($val -split '#', 2)[0].Trim() }
+        $val = $val.TrimStart([char]0xFEFF)
         $vars[$key] = $val.Trim('"').Trim("'")
     }
 }
@@ -39,7 +40,8 @@ foreach ($name in $required) {
     $value = $vars[$name]
     $tmpFile = Join-Path $tempDir "vercel_supabase_$([Guid]::NewGuid().ToString('N').Substring(0,8)).txt"
     try {
-        [System.IO.File]::WriteAllText($tmpFile, $value)
+        $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+        [System.IO.File]::WriteAllText($tmpFile, $value, $utf8NoBom)
         foreach ($env in "production", "preview") {
             vercel env rm $name $env --yes 2>$null | Out-Null
             Get-Content $tmpFile -Raw | vercel env add $name $env 2>$null
