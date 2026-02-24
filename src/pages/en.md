@@ -1,0 +1,14 @@
+fasd asdd d 
+
+https://dssdiqojkktzfuwoulbq.supabase.co
+api url
+
+
+
+Publishable key
+sb_publishable_XYe5JvksB7xYxhdceUOBwg_tf6zYkBu
+
+
+
+anon key
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzc2RpcW9qa2t0emZ1d291bGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNjk2NjAsImV4cCI6MjA4NjY0NTY2MH0.opbxHgoqWqF_GsGSsBsiGRpqVDBWlmPtECTy31s0mbs

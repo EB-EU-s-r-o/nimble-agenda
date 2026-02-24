@@ -4,6 +4,24 @@ Tento dokument obsahuje checklist na overenie konfigurácie pred a po nasadení 
 
 ---
 
+## Overenie po deployi (kontrola, či je všetko nastavené)
+
+Po úspešnom `vercel --prod` over v prehliadači v tomto poradí:
+
+| # | Čo skontrolovať | Kde / ako |
+|---|-----------------|-----------|
+| 1 | **Úvodná stránka** | Otvor **https://nimble-agenda.vercel.app** – mala by sa zobraziť úvodná stránka (PAPI HAIR DESIGN BOOKING). |
+| 2 | **Env premenné** | Otvor **https://nimble-agenda.vercel.app/diagnostics?key=diagnostics** – sekcia **Env** musí ukazovať **VITE_SUPABASE_URL: Áno** a **Aktuálny host** by mal začínať na `eudwjgdijylsgcnncxeg`. |
+| 3 | **DB** | Na tej istej stránke diagnostiky – sekcia **DB** musí byť **OK** (zelené). |
+| 4 | **RPC** | Sekcia **RPC** musí byť **OK** (zelené). |
+| 5 | **Auth** | Sekcia **Auth** musí byť **OK**; **Session** môže byť „nie“ ak nie si prihlásený. |
+| 6 | **Booking** | Otvor **https://nimble-agenda.vercel.app/booking** – mali by sa načítať služby / zamestnanci (žiadne prázdne stránky ani chyby v konzole). |
+| 7 | **Prihlásenie** | Otvor **https://nimble-agenda.vercel.app/auth** – prihlásenie email/heslo by malo fungovať a presmerovať (napr. na `/admin`). |
+
+Ak sú všetky body OK, produkcia je nastavená správne. Ak niečo zlyhá, pozri sekciu „Ak /booking neukazuje služby“ nižšie.
+
+---
+
 ## Pred deployom
 
 - [ ] V Supabase (Dashboard → **Authentication** → **URL Configuration**) sú nastavené **Site URL** a **Redirect URLs** na finálnu doménu (Vercel alebo napr. `https://booking.papihairdesign.sk`).

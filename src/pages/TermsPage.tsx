@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen min-h-[100dvh] safe-x safe-y bg-background text-foreground">
+    <div className="min-h-screen safe-x safe-y bg-background text-foreground">
       <div className="container max-w-3xl py-8 px-4">
         <Card>
           <CardHeader>
