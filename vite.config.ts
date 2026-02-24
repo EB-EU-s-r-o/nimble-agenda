@@ -4,7 +4,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
-// https://vitejs.dev/config/ – cache bust
+// https://vitejs.dev/config/ – env reload
 export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: true,

@@ -42,8 +42,8 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 async function fetchProfileViaRPC(): Promise<{ profile: Profile | null; memberships: Membership[] }> {
-  const { data: profileRows } = await supabase.rpc("get_my_profile");
-  const { data: membershipRows } = await supabase.rpc("get_my_memberships");
+  const { data: profileRows } = await (supabase.rpc as any)("get_my_profile");
+  const { data: membershipRows } = await (supabase.rpc as any)("get_my_memberships");
   const profile = Array.isArray(profileRows) && profileRows[0] ? profileRows[0] : null;
   const memberships = Array.isArray(membershipRows) ? membershipRows : [];
   return { profile, memberships };
@@ -113,7 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
         try {
-          await supabase.rpc("ensure_my_firebase_profile", {
+          await (supabase.rpc as any)("ensure_my_firebase_profile", {
             p_email: firebaseUser.email ?? undefined,
             p_full_name: firebaseUser.displayName ?? undefined,
           });
