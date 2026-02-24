@@ -1,55 +1,31 @@
 
 
-## Expanding Cards na /demo stranke
+## Oprava chyby "supabaseUrl is required"
 
-Premena /demo stranky na vizualne pohlcujuci dizajn s expandujucimi kartami (accordion-style), kde kazda karta reprezentuje jednu sekciu existujuceho obsahu.
+### Problem
+Subor `.env` neexistuje v projekte. Supabase klient v `client.ts` (auto-generovany, nesmie sa editovat) cita `import.meta.env.VITE_SUPABASE_URL`, ktora je `undefined`. Hoci `vite.config.ts` obsahuje fallbacky cez `define` blok, tieto nemusia fungovat spravne v dev rezime Lovable Cloud.
 
-### Koncept
+### Riesenie
 
-Horizontalne karty na desktope (vertikalne na mobile), ktore sa po kliknuti roztiahnu a odkryju obsah. Kazda karta ma pozadie s gradient/efektom a zlatu ikonku. Aktivna karta zaberie vacsinu priestoru, neaktivne sa zuzuju na uzke pruzky s ikonkou.
+Jediny krok: **Obnovit `.env` subor** s korektnym obsahom:
 
-### Struktura kariet (5 kariet)
+```
+VITE_SUPABASE_PROJECT_ID="eudwjgdijylsgcnncxeg"
+VITE_SUPABASE_URL="https://eudwjgdijylsgcnncxeg.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1ZHdqZ2Rpanlsc2djbm5jeGVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTI5OTAsImV4cCI6MjA4NzA4ODk5MH0.9BknkyJShiVQgTBuO-Ulx9eTgrERxxzLth0-E0_Y8IU"
+```
 
-1. **PAPI HAIR DESIGN** - Hero s logom, nadpisom a CTA buttonmi
-2. **Demo ucty** - 3 demo ucty s copy buttonmi a prihlasenim
-3. **Ako to funguje** - 3 kroky procesu
-4. **Funkcie** - Grid 6 featurov
-5. **QR kod** - QR kod na rezervaciu
+Tieto hodnoty su verejne (anon key + project URL) a su uz hardcoded ako fallbacky vo `vite.config.ts`, takze nie je bezpecnostne riziko.
+
+### Dolezite poznamky
+- **Nebudu sa editovat** subory `client.ts`, `types.ts`, ani `config.toml` -- su auto-generovane
+- **Nebudu sa menit** ziadne ine subory -- jediny problem je chybajuci `.env`
+- Po vytvoreni `.env` sa Vite dev server automaticky restartuje a chyba zmizne
 
 ### Technicke detaily
 
-**Novy CSS subor** `src/styles/expanding-cards.css`:
-- BEM konvencia (`.expanding-cards`, `.expanding-cards__option`, `.expanding-cards__option--active`)
-- Flexbox layout s `transition: flex-grow 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95)`
-- Neaktivne karty: `flex-grow: 1`, `min-width: 80px`, `border-radius: 24px`
-- Aktivna karta: `flex-grow: 10`, `max-width: 700px`, `border-radius: 32px`
-- Kazda karta ma gradient pozadie s AMOLED black a zlatymi akcentmi
-- Shadow overlay na spodku pre citatelnost labelu
-- Na mobile: vertikalny layout, kazda karta ma `min-height: 60px`, aktivna expanduje na `flex-grow: 6`
-
-**Upraveny subor** `src/pages/DemoPage.tsx`:
-- Nahradenie scrollovacej stranky za fullscreen expanding cards
-- React state `activeCard` na sledovanie aktivnej karty (default: 0 = hero)
-- Framer Motion `AnimatePresence` pre plynule prechody obsahu vnutri kariet
-- Zachovanie vsetkych existujucich dat (demoAccounts, steps, features)
-- Zachovanie `CopyButton` komponentu
-- ThemeToggle zostava v pravom hornom rohu
-
-**Vizualne detaily kazdej karty:**
-- Neaktivna: zobrazuje len ikonu v zlatom kruhu + rotovany nazov sekcie
-- Aktivna: plny obsah s animovanym fade-in, scrollovatelny ak je obsah vyssi
-- Pozadie: cierne s jemnymi zlatymi gradient akcentmi (rozne pre kazdu kartu)
-- Border: 1px solid rgba(218,165,32, 0.15) - konzistentne s liquid glass systemom
-- Backdrop-blur pre glass efekt
-
-**Responzivita:**
-- Desktop (>768px): horizontalny layout, vyska 85vh
-- Mobile (<=768px): vertikalny layout, plna vyska obrazovky, aktivna karta expanduje vertikalne
-
-### Zhrnutie zmien
-
-| Subor | Akcia |
-|---|---|
-| `src/styles/expanding-cards.css` | Novy - vsetky styly pre expanding cards |
-| `src/pages/DemoPage.tsx` | Prepracovanie na expanding cards layout |
+Preco `define` blok vo `vite.config.ts` nestaci:
+- V dev rezime Vite spracuva `import.meta.env.VITE_*` premenne cez vlastny env system, nie cez `define`
+- `loadEnv()` v config subore cita `.env` subor -- ked neexistuje, `env.VITE_SUPABASE_URL` je prazdny retazec
+- Fallback `||` operator by mal fungovat, ale `define` prepis `import.meta.env` v dev mode moze byt ignorovany Vite-om v prospech jeho vlastneho env systemu
 
