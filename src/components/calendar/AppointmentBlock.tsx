@@ -12,13 +12,13 @@ export interface CalendarAppointment {
 }
 
 interface AppointmentBlockProps {
-  appointment: CalendarAppointment;
-  hourHeight: number;
-  startHour: number;
-  timezone: string;
-  onClick: (apt: CalendarAppointment) => void;
-  isDragging?: boolean;
-  dragTop?: number;
+  readonly appointment: CalendarAppointment;
+  readonly hourHeight: number;
+  readonly startHour: number;
+  readonly timezone: string;
+  readonly onClick: (apt: CalendarAppointment) => void;
+  readonly isDragging?: boolean;
+  readonly dragTop?: number;
 }
 
 const STATUS_COLORS: Record<string, string> = {

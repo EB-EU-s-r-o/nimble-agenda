@@ -11,8 +11,8 @@ export function getTimeInTZ(date: Date, tz: string): { hours: number; minutes: n
     hour12: false,
   }).formatToParts(date);
 
-  let hours = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
-  const minutes = parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10);
+  let hours = Number.parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
+  const minutes = Number.parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10);
   if (hours === 24) hours = 0;
   return { hours, minutes };
 }

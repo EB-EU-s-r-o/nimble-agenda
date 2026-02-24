@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import { format, parse, startOfWeek, getDay, format as fmtDate } from "date-fns";
 import { sk } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/styles/big-calendar-overrides.css";
@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, User, Clock, Phone, Check } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
-import { format as fmtDate } from "date-fns";
 
 const localizer = dateFnsLocalizer({
   format,

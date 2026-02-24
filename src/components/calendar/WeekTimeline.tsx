@@ -5,11 +5,11 @@ import { formatTimeInTZ } from "@/lib/timezone";
 import type { CalendarAppointment } from "./AppointmentBlock";
 
 interface WeekTimelineProps {
-  currentDate: Date;
-  appointments: CalendarAppointment[];
-  timezone: string;
-  onDayClick: (date: Date) => void;
-  onTapAppointment: (apt: CalendarAppointment) => void;
+  readonly currentDate: Date;
+  readonly appointments: CalendarAppointment[];
+  readonly timezone: string;
+  readonly onDayClick: (date: Date) => void;
+  readonly onTapAppointment: (apt: CalendarAppointment) => void;
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -60,9 +60,9 @@ export default function WeekTimeline({
                 <div className={`flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${
                   today
                     ? "bg-gold text-gold-foreground"
-                    : isSelected
-                    ? "bg-accent text-foreground"
-                    : "text-foreground"
+                    : (isSelected
+                      ? "bg-accent text-foreground"
+                      : "text-foreground")
                 }`}>
                   {format(day, "d")}
                 </div>
