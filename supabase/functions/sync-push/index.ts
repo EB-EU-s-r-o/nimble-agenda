@@ -13,6 +13,38 @@ interface OfflineAction {
   created_at: string;
 }
 
+// Helper function to trigger appointment notifications
+async function triggerNotification(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  appointmentId: string,
+  businessId: string,
+  eventType: "created" | "updated" | "cancelled"
+) {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-appointment-notification`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ 
+        appointment_id: appointmentId, 
+        business_id: businessId, 
+        event_type: eventType 
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error(`Notification trigger failed for ${eventType}:`, await response.text());
+    } else {
+      console.log(`Notification triggered for ${eventType}:`, appointmentId);
+    }
+  } catch (e) {
+    console.error(`Notification trigger error for ${eventType}:`, e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -27,13 +59,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      supabaseUrl,
+      serviceRoleKey
     );
 
     const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      supabaseUrl,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
@@ -137,6 +172,15 @@ Deno.serve(async (req) => {
               },
               { onConflict: "id" }
             );
+
+            // Trigger notification for new appointment
+            await triggerNotification(
+              supabaseUrl,
+              serviceRoleKey,
+              p.id,
+              businessId,
+              "created"
+            );
           }
         } else if (action.type === "APPOINTMENT_UPDATE") {
           const p = action.payload;
@@ -150,12 +194,30 @@ Deno.serve(async (req) => {
             .update(updateData)
             .eq("id", p.id)
             .eq("business_id", businessId);
+
+          // Trigger notification for updated appointment
+          await triggerNotification(
+            supabaseUrl,
+            serviceRoleKey,
+            p.id,
+            businessId,
+            "updated"
+          );
         } else if (action.type === "APPOINTMENT_CANCEL") {
           await supabaseAdmin
             .from("appointments")
             .update({ status: "cancelled" })
             .eq("id", action.payload.id)
             .eq("business_id", businessId);
+
+          // Trigger notification for cancelled appointment
+          await triggerNotification(
+            supabaseUrl,
+            serviceRoleKey,
+            action.payload.id,
+            businessId,
+            "cancelled"
+          );
         }
 
         // Record dedup
