@@ -253,6 +253,7 @@ export type Database = {
       businesses: {
         Row: {
           address: string | null
+          allow_admin_as_provider: boolean
           cancellation_hours: number
           created_at: string
           email: string | null
@@ -271,6 +272,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          allow_admin_as_provider?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null
@@ -289,6 +291,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          allow_admin_as_provider?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null
@@ -707,6 +710,19 @@ export type Database = {
         Args: { _business_id: string; _user_id: string }
         Returns: string
       }
+      get_bookable_employees: {
+        Args: { _business_id: string }
+        Returns: {
+          id: string
+          display_name: string
+          email: string | null
+          phone: string | null
+          photo_url: string | null
+          is_active: boolean
+          profile_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -720,6 +736,10 @@ export type Database = {
       }
       is_business_employee: {
         Args: { _business_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_employee_bookable_for_services: {
+        Args: { _employee_id: string; _business_id: string }
         Returns: boolean
       }
       rpc_get_public_business_info: {

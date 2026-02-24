@@ -5,15 +5,16 @@ import { useBusiness } from "@/hooks/useBusiness";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Save, Mail } from "lucide-react";
+import { Loader2, Save, Mail, Users, Shield } from "lucide-react";
 import { BusinessHoursEditor } from "@/components/admin/BusinessHoursEditor";
 
 export default function SettingsPage() {
   const { profile, refreshProfile } = useAuth();
-  const { businessId } = useBusiness();
+  const { businessId, isOwner } = useBusiness();
   const [business, setBusiness] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "" });
@@ -26,7 +27,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Load business WITHOUT smtp_config – passwords should never reach the client
-    supabase.from("businesses").select("id, name, address, phone, email, timezone, lead_time_minutes, max_days_ahead, cancellation_hours, onboarding_completed, opening_hours, logo_url, slug, smtp_config").eq("id", businessId).single().then(({ data }) => {
+    supabase.from("businesses").select("id, name, address, phone, email, timezone, lead_time_minutes, max_days_ahead, cancellation_hours, onboarding_completed, opening_hours, logo_url, slug, smtp_config, allow_admin_as_provider").eq("id", businessId).single().then(({ data }) => {
       if (data) {
         setBusiness(data);
         const smtp = (data as any).smtp_config as any ?? {};
@@ -96,13 +97,29 @@ export default function SettingsPage() {
     }
   };
 
+  const saveBookingSettings = async () => {
+    if (!business) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("businesses")
+      .update({ allow_admin_as_provider: business.allow_admin_as_provider })
+      .eq("id", businessId);
+    setSaving(false);
+    if (error) {
+      toast.error("Chyba pri ukladaní nastavení booking");
+      return;
+    }
+    toast.success("Nastavenia booking uložené");
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-bold text-foreground">Nastavenia</h1>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">Všeobecné</TabsTrigger>
+          <TabsTrigger value="booking">Booking</TabsTrigger>
           <TabsTrigger value="hours">Otváracie hodiny</TabsTrigger>
           <TabsTrigger value="smtp">SMTP Email</TabsTrigger>
           <TabsTrigger value="profile">Profil</TabsTrigger>
@@ -147,6 +164,56 @@ export default function SettingsPage() {
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                   Uložiť nastavenia
                 </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="booking" className="space-y-6 mt-4">
+          {business && (
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Nastavenia rezervácií
+                </CardTitle>
+                <CardDescription>
+                  Spravujte kto môže byť vybraný ako vykonávateľ služby
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
+                  <div className="space-y-0.5 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-primary" />
+                      <Label className="text-sm font-medium">
+                        Povoliť administrátora ako vykonávateľa služby
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Keď je zapnuté, administrátori a majitelia s priradeným profilom zamestnanca 
+                      budú dostupní vo výbere pracovníkov pri vytváraní rezervácie služby.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={business.allow_admin_as_provider ?? false}
+                    disabled={!isOwner}
+                    onCheckedChange={(checked) => {
+                      setBusiness((b: any) => ({ ...b, allow_admin_as_provider: checked }));
+                    }}
+                  />
+                </div>
+                {!isOwner && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Toto nastavenie môže meniť iba majiteľ salónu.
+                  </p>
+                )}
+                {isOwner && (
+                  <Button onClick={saveBookingSettings} disabled={saving} size="sm">
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Uložiť nastavenia
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}

@@ -47,6 +47,12 @@ interface EmployeeRow {
   is_active: boolean;
   business_id: string;
   photo_url: string | null;
+  profile_id: string | null;
+}
+
+interface MembershipRow {
+  profile_id: string;
+  role: "owner" | "admin" | "employee" | "customer";
 }
 
 interface BookingResult {
@@ -67,6 +73,7 @@ export default function BookingPage() {
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
   const [employeeServiceMap, setEmployeeServiceMap] = useState<Record<string, string[]>>({});
+  const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
 
   // Booking states
@@ -129,6 +136,13 @@ export default function BookingPage() {
       });
       setEmployeeServiceMap(eMap);
 
+      // Load memberships to filter admins/owners based on setting
+      const { data: memData } = await supabase
+        .from("memberships")
+        .select("profile_id, role")
+        .eq("business_id", DEMO_BUSINESS_ID);
+      setMemberships((memData ?? []) as MembershipRow[]);
+
       setInitialLoading(false);
     };
     load();
@@ -150,15 +164,34 @@ export default function BookingPage() {
 
   const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
 
-  // Filter employees based on selected service
+  // Filter employees based on selected service and admin setting
   const filteredEmployees = useMemo(() => {
-    if (!selectedServiceId) return employees;
-    return employees.filter(emp => {
-      // If we have no mapping for this employee, assume they do all services (fallback)
-      if (!employeeServiceMap[emp.id]) return true;
-      return employeeServiceMap[emp.id].includes(selectedServiceId);
-    });
-  }, [employees, selectedServiceId, employeeServiceMap]);
+    let result = employees;
+
+    // Filter by service assignment
+    if (selectedServiceId) {
+      result = result.filter(emp => {
+        if (!employeeServiceMap[emp.id]) return true;
+        return employeeServiceMap[emp.id].includes(selectedServiceId);
+      });
+    }
+
+    // Filter admins/owners based on allow_admin_as_provider setting
+    if (!business?.allow_admin_as_provider) {
+      result = result.filter(emp => {
+        // If no profile_id, employee is not linked to a user - always allow
+        if (!emp.profile_id) return true;
+        // Find membership for this employee's profile
+        const membership = memberships.find(m => m.profile_id === emp.profile_id);
+        // If no membership, allow (legacy employee)
+        if (!membership) return true;
+        // Allow only employees (not admin/owner) when setting is false
+        return membership.role === "employee";
+      });
+    }
+
+    return result;
+  }, [employees, selectedServiceId, employeeServiceMap, business, memberships]);
 
   const selectedEmployee = employees.find((e) => e.id === selectedWorkerId) ?? null;
 
