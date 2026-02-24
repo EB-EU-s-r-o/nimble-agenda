@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, uprava22-2]
+    branches: [main, uprava22-2, papihairstudiobooking]
   pull_request:
-    branches: [main]
+    branches: [main, papihairstudiobooking]
 
 jobs:
   lint-and-test:
