@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { startOfWeek, addDays, format, isSameDay, isToday } from "date-fns";
+import { startOfWeek, addDays, format, isSameDay, isToday, parseISO } from "date-fns";
 import { sk } from "date-fns/locale";
-import { formatTimeInTZ } from "@/lib/timezone";
+import { formatTimeInTZ, getTimeInTZ } from "@/lib/timezone";
 import type { CalendarAppointment } from "./AppointmentBlock";
 
 interface WeekTimelineProps {
@@ -19,17 +19,6 @@ const STATUS_DOT: Record<string, string> = {
   completed: "bg-muted-foreground/50",
 };
 
-/** Helper to get day badge class - extracted from nested ternary for readability */
-function getDayBadgeClass(today: boolean, isSelected: boolean): string {
-  if (today) {
-    return "bg-gold text-gold-foreground";
-  }
-  if (isSelected) {
-    return "bg-accent text-foreground";
-  }
-  return "text-foreground";
-}
-
 export default function WeekTimeline({
   currentDate,
   appointments,
@@ -40,17 +29,22 @@ export default function WeekTimeline({
   const weekStart = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1 }), [currentDate]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
-  // Group appointments by day
+  // Group appointments by day - FIX: proper timezone handling
   const aptsByDay = useMemo(() => {
     const map = new Map<string, CalendarAppointment[]>();
     for (const apt of appointments) {
-      const key = format(new Date(apt.start_at), "yyyy-MM-dd");
+      // Parse as UTC and get the date in timezone
+      const utcDate = parseISO(apt.start_at);
+      const { hours, minutes } = getTimeInTZ(utcDate, timezone);
+      const localDate = new Date(utcDate);
+      localDate.setHours(hours, minutes, 0, 0);
+      const key = format(localDate, "yyyy-MM-dd");
       const list = map.get(key) ?? [];
       list.push(apt);
       map.set(key, list);
     }
     return map;
-  }, [appointments]);
+  }, [appointments, timezone]);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -68,7 +62,13 @@ export default function WeekTimeline({
                 onClick={() => onDayClick(day)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
               >
-                <div className={`flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${getDayBadgeClass(today, isSelected)}`}>
+                <div className={`flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${
+                  today
+                    ? "bg-gold text-gold-foreground"
+                    : (isSelected
+                      ? "bg-accent text-foreground"
+                      : "text-foreground")
+                }`}>
                   {format(day, "d")}
                 </div>
                 <div className="flex flex-col items-start">
@@ -93,14 +93,17 @@ export default function WeekTimeline({
                     <button
                       key={apt.id}
                       onClick={() => onTapAppointment(apt)}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-card/60 border border-border/30 hover:bg-accent/30 transition-colors text-left"
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-card/60 border border-border/30 hover:bg-accent/30 transition-colors text-left group"
                     >
                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[apt.status] ?? STATUS_DOT.pending}`} />
-                      <span className="text-xs font-medium text-foreground truncate">
+                      <span 
+                        className="text-xs font-medium text-foreground truncate min-w-0 flex-1"
+                        title={apt.service_name}
+                      >
                         {apt.service_name}
                       </span>
                       <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                        {formatTimeInTZ(new Date(apt.start_at), timezone)}
+                        {formatTimeInTZ(parseISO(apt.start_at), timezone)}
                       </span>
                     </button>
                   ))}

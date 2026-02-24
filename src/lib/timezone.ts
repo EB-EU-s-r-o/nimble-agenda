@@ -2,6 +2,9 @@
  * Timezone-aware utilities using Intl API (zero dependencies).
  */
 
+/** Default business timezone for Slovakia */
+export const BUSINESS_TZ = "Europe/Bratislava";
+
 /** Get hours and minutes of a Date in a specific timezone */
 export function getTimeInTZ(date: Date, tz: string): { hours: number; minutes: number } {
   const parts = new Intl.DateTimeFormat('en-US', {

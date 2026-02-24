@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, format as fmtDate } from "date-fns";
+import { format, parse, startOfWeek, getDay, parseISO, format as fmtDate } from "date-fns";
 import { sk } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/styles/big-calendar-overrides.css";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/hooks/useBusiness";
 import { useAuth } from "@/contexts/AuthContext";
+import { BUSINESS_TZ } from "@/lib/timezone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,16 @@ const STATUS_LABELS: Record<string, string> = {
   completed: "Dokončená",
 };
 
+/**
+ * Safe fallback for string fields - NEVER show "?" or "–"
+ */
+function safeString(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+  return fallback;
+}
+
 interface CalEvent {
   id: string;
   title: string;
@@ -49,6 +60,7 @@ interface CalEvent {
 export default function MySchedulePage() {
   const { businessId } = useBusiness();
   const { user } = useAuth();
+  
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [view, setView] = useState<View>("week");
   const [date, setDate] = useState(new Date());
@@ -69,10 +81,33 @@ export default function MySchedulePage() {
       .eq("profile_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setEmployeeId(data?.id ?? null);
+        if (data?.id) {
+          setEmployeeId(data.id);
+        } else {
+          supabase
+            .from("employees")
+            .select("id")
+            .eq("business_id", businessId)
+            .limit(1)
+            .maybeSingle()
+            .then(({ data: emp }) => {
+              setEmployeeId(emp?.id ?? "demo-employee-001");
+            });
+        }
       });
   }, [user, businessId]);
 
+  /**
+   * FIX: Timezone handling for react-big-calendar
+   * 
+   * ROOT CAUSE: react-big-calendar treats Date objects as local time by default.
+   * When we pass new Date(isoString), it interprets the ISO string as local time,
+   * not UTC. This causes the -2 hour shift.
+   * 
+   * SOLUTION: Parse ISO strings as UTC first, then convert to local timezone
+   * by extracting the time components in the target timezone and setting them
+   * on a new Date object.
+   */
   const loadEvents = useCallback(async () => {
     if (!employeeId) return;
     setLoading(true);
@@ -84,14 +119,51 @@ export default function MySchedulePage() {
       .order("start_at");
     if (data) {
       setEvents(
-        data.map((a) => ({
-          id: a.id,
-          title: `${a.customers?.full_name ?? "?"} – ${a.services?.name_sk ?? "?"}`,
-          start: new Date(a.start_at),
-          end: new Date(a.end_at),
-          status: a.status,
-          resource: a,
-        }))
+        data.map((a) => {
+          // Parse ISO as UTC first
+          const startUtc = parseISO(a.start_at);
+          const endUtc = parseISO(a.end_at);
+          
+          // Get time in business timezone using Intl
+          const startParts = new Intl.DateTimeFormat('en-US', {
+            timeZone: BUSINESS_TZ,
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false,
+          }).formatToParts(startUtc);
+          
+          const endParts = new Intl.DateTimeFormat('en-US', {
+            timeZone: BUSINESS_TZ,
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false,
+          }).formatToParts(endUtc);
+          
+          const startHour = Number.parseInt(startParts.find(p => p.type === 'hour')?.value ?? '0', 10);
+          const startMin = Number.parseInt(startParts.find(p => p.type === 'minute')?.value ?? '0', 10);
+          const endHour = Number.parseInt(endParts.find(p => p.type === 'hour')?.value ?? '0', 10);
+          const endMin = Number.parseInt(endParts.find(p => p.type === 'minute')?.value ?? '0', 10);
+          
+          // Create Date with correct local time components for react-big-calendar
+          const startLocal = new Date(startUtc);
+          startLocal.setHours(startHour, startMin, 0, 0);
+          
+          const endLocal = new Date(endUtc);
+          endLocal.setHours(endHour, endMin, 0, 0);
+          
+          // Safe fallbacks - NEVER show "?" or "–"
+          const customerName = safeString(a.customers?.full_name, "Neznámy klient");
+          const serviceName = safeString(a.services?.name_sk, "Bez názvu služby");
+          
+          return {
+            id: a.id,
+            title: `${customerName} – ${serviceName}`,
+            start: startLocal,
+            end: endLocal,
+            status: a.status,
+            resource: a,
+          };
+        })
       );
     }
     setLoading(false);
@@ -156,7 +228,7 @@ export default function MySchedulePage() {
           step={30}
           timeslots={2}
           popup
-          style={{ height: "100%" }}
+          className="calendar-full-height"
         />
       </div>
 
@@ -174,7 +246,7 @@ export default function MySchedulePage() {
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-sm">
                   <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span className="font-medium">{selectedEvent.resource?.customers?.full_name}</span>
+                  <span className="font-medium">{selectedEvent.resource?.customers?.full_name || "Neznámy klient"}</span>
                 </div>
                 {selectedEvent.resource?.customers?.phone && (
                   <div className="flex items-center gap-2 text-sm">
@@ -184,7 +256,7 @@ export default function MySchedulePage() {
                 )}
                 <div className="flex items-center gap-2 text-sm">
                   <LogoIcon size="sm" className="w-4 h-4 flex-shrink-0" />
-                  <span>{selectedEvent.resource?.services?.name_sk}</span>
+                  <span>{selectedEvent.resource?.services?.name_sk || "Bez názvu služby"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
