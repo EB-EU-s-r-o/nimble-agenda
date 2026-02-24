@@ -6,7 +6,7 @@ import { VitePWA } from "vite-plugin-pwa";
 
 const stripBom = (s: string | undefined) => (s ?? "").replace(/^\uFEFF/, "").trim();
 
-// https://vitejs.dev/config/ – cache bust
+// https://vitejs.dev/config/ – cache bust v2
 export default defineConfig(({ mode }) => {
   // Ensure envs are loaded in all environments (dev/preview/build)
   const env = loadEnv(mode, process.cwd(), "");
