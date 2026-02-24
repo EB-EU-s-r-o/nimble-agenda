@@ -177,6 +177,23 @@ serve(async (req) => {
       );
     }
 
+    // 2b. Verify employee is bookable for services (admin/owner check)
+    const { data: isBookable, error: bookableErr } = await supabase.rpc(
+      "is_employee_bookable_for_services",
+      { _employee_id: employee_id, _business_id: business_id }
+    );
+
+    if (bookableErr) {
+      console.error("Bookable check error:", bookableErr);
+    }
+
+    if (!isBookable) {
+      return new Response(
+        JSON.stringify({ error: "Tento pracovník nie je dostupný pre rezerváciu služieb" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 3. Calculate end time
     const startDate = new Date(start_at);
     const totalMinutes = service.duration_minutes + (service.buffer_minutes ?? 0);
@@ -280,7 +297,7 @@ serve(async (req) => {
       expires_at: expiresAt.toISOString(),
     });
 
-    // 8. Send confirmation email (fire-and-forget)
+    // 8. Send confirmation email to customer (fire-and-forget)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     fetch(`${supabaseUrl}/functions/v1/send-booking-email`, {
@@ -291,6 +308,20 @@ serve(async (req) => {
       },
       body: JSON.stringify({ appointment_id: appointment.id, business_id }),
     }).catch((e) => console.error("Email trigger failed:", e));
+
+    // 9. Send admin/employee notifications (fire-and-forget)
+    fetch(`${supabaseUrl}/functions/v1/send-appointment-notification`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ 
+        appointment_id: appointment.id, 
+        business_id, 
+        event_type: "created" 
+      }),
+    }).catch((e) => console.error("Notification trigger failed:", e));
 
     return new Response(
       JSON.stringify({
