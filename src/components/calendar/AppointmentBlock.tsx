@@ -59,8 +59,8 @@ export default function AppointmentBlock({
         isDragging
           ? "scale-[1.04] z-50 shadow-lg shadow-gold/20 ring-1 ring-gold/30"
           : "active:scale-[0.98]"
-      }`}
-      style={{ top, height, minHeight: 28 }}
+      } cal-apt-positioned`}
+      style={{ top, height }}
     >
       <p className="text-xs font-semibold truncate leading-tight">
         {appointment.service_name}

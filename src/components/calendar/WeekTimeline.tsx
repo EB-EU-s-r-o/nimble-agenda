@@ -19,6 +19,17 @@ const STATUS_DOT: Record<string, string> = {
   completed: "bg-muted-foreground/50",
 };
 
+/** Helper to get day badge class - extracted from nested ternary for readability */
+function getDayBadgeClass(today: boolean, isSelected: boolean): string {
+  if (today) {
+    return "bg-gold text-gold-foreground";
+  }
+  if (isSelected) {
+    return "bg-accent text-foreground";
+  }
+  return "text-foreground";
+}
+
 export default function WeekTimeline({
   currentDate,
   appointments,
@@ -57,13 +68,7 @@ export default function WeekTimeline({
                 onClick={() => onDayClick(day)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors"
               >
-                <div className={`flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${
-                  today
-                    ? "bg-gold text-gold-foreground"
-                    : (isSelected
-                      ? "bg-accent text-foreground"
-                      : "text-foreground")
-                }`}>
+                <div className={`flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${getDayBadgeClass(today, isSelected)}`}>
                   {format(day, "d")}
                 </div>
                 <div className="flex flex-col items-start">

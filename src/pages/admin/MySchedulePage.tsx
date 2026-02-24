@@ -140,8 +140,7 @@ export default function MySchedulePage() {
       </div>
 
       <div
-        className="bg-card rounded-xl border border-border p-4"
-        style={{ height: "calc(100vh - 200px)", minHeight: 500 }}
+        className="bg-card rounded-xl border border-border p-4 calendar-container"
       >
         <Calendar
           localizer={localizer}
