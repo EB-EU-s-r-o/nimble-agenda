@@ -412,36 +412,6 @@ export type Database = {
           },
         ]
       }
-      employee_services: {
-        Row: {
-          employee_id: string
-          service_id: string
-        }
-        Insert: {
-          employee_id: string
-          service_id: string
-        }
-        Update: {
-          employee_id?: string
-          service_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_services_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_services_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       memberships: {
         Row: {
           business_id: string
@@ -733,21 +703,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      ensure_my_firebase_profile: {
-        Args: { p_email?: string; p_full_name?: string }
-        Returns: string
-      }
       get_employee_id: {
         Args: { _business_id: string; _user_id: string }
         Returns: string
-      }
-      get_my_memberships: {
-        Args: Record<string, never>
-        Returns: Database["public"]["Tables"]["memberships"]["Row"][]
-      }
-      get_my_profile: {
-        Args: Record<string, never>
-        Returns: Database["public"]["Tables"]["profiles"]["Row"][]
       }
       has_role: {
         Args: {
