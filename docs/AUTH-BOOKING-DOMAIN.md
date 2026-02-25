@@ -79,7 +79,7 @@ V `src/pages/Auth.tsx` sa používa `window.location.origin`, takže na booking.
 
 **Pred deployom:** (1) Spustiť CLI push podľa `RUN-AUTH-PUSH.txt` (v koreni projektu). (2) V Supabase Dashboard → Authentication → URL Configuration overiť Site URL a Redirect URLs. (3) Vercel → Environment Variables overiť `VITE_SUPABASE_URL` a `VITE_SUPABASE_PUBLISHABLE_KEY`. (4) Lokálne: `npm run build` a manuálny test `/auth` (email alebo Google).
 
-**Po deployi:** (1) Build na Verceli OK. (2) Na https://booking.papihairdesign.sk otvoriť F12 → Console a overiť, že env je nastavená; alebo použiť `/diagnostics?key=diagnostics`. (3) Kliknúť na Prihlásiť sa na `/auth` a overiť presmerovanie na `/admin`. (4) Voliteľne: `/diagnostics?key=diagnostics` – DB select, RPC a Session by mali byť OK.
+**Po deployi:** (1) Build na Verceli OK. (2) Na https://booking.papihairdesign.sk otvoriť F12 → Console a overiť, že env je nastavená; (voliteľne v internom DEV/admin prostredí) použiť `/diagnostics`. (3) Kliknúť na Prihlásiť sa na `/auth` a overiť presmerovanie na `/admin`. (4) Voliteľne (iba interný DEV/admin diagnostics): `/diagnostics` – DB select, RPC a Session by mali byť OK.
 
 ---
 

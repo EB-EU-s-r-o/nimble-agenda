@@ -22,8 +22,8 @@ export default function ProtectedRoute({ children, requireAdmin = false, allowed
   if (!user) return <Navigate to="/auth" replace />;
 
   if (requireAdmin) {
-    const hasAdmin = memberships.some((m) => m.role === "owner" || m.role === "admin");
-    if (!hasAdmin) return <Navigate to="/admin" replace />;
+    const hasAdmin = memberships.some((m) => m.role === "owner" || m.role === "admin" || m.role === "employee");
+    if (!hasAdmin) return <Navigate to="/" replace />;
   }
 
   if (allowedRoles?.length) {
