@@ -57,18 +57,38 @@ Deno.serve(async (req) => {
       .from("memberships")
       .select("business_id, role")
       .eq("profile_id", userId)
-      .in("role", ["owner", "admin"])
+      .in("role", ["owner", "admin", "employee"])
       .limit(1)
       .single();
 
     if (!membership) {
       return new Response(
-        JSON.stringify({ ok: false, error: "Not a business admin" }),
+        JSON.stringify({ ok: false, error: "Missing business membership" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const businessId = membership.business_id;
+    const isEmployee = membership.role === "employee";
+
+    let scopedEmployeeId: string | null = null;
+    if (isEmployee) {
+      const { data: employee } = await supabaseAdmin
+        .from("employees")
+        .select("id, is_active")
+        .eq("business_id", businessId)
+        .eq("profile_id", userId)
+        .maybeSingle();
+
+      if (!employee?.id || employee.is_active === false) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Employee account is not linked or is deactivated" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      scopedEmployeeId = employee.id;
+    }
+
     const conflicts: Array<{ idempotency_key: string; reason: string; server_suggestion?: any }> = [];
     let applied = 0;
 
@@ -88,13 +108,18 @@ Deno.serve(async (req) => {
       try {
         if (action.type === "APPOINTMENT_CREATE") {
           const p = action.payload;
+          const employeeId = isEmployee ? scopedEmployeeId : p.employee_id;
+
+          if (!employeeId) {
+            throw new Error("Employee is required for appointment create");
+          }
 
           // Check for slot conflict
           const { data: conflicting } = await supabaseAdmin
             .from("appointments")
             .select("id")
             .eq("business_id", businessId)
-            .eq("employee_id", p.employee_id || "")
+            .eq("employee_id", employeeId)
             .neq("status", "cancelled")
             .lt("start_at", p.end_at)
             .gt("end_at", p.start_at)
@@ -129,7 +154,7 @@ Deno.serve(async (req) => {
                 id: p.id,
                 business_id: businessId,
                 customer_id: customer.id,
-                employee_id: p.employee_id || null,
+                employee_id: employeeId,
                 service_id: p.service_id || null,
                 start_at: p.start_at,
                 end_at: p.end_at,
@@ -145,17 +170,29 @@ Deno.serve(async (req) => {
           if (p.end_at) updateData.end_at = p.end_at;
           if (p.status) updateData.status = p.status;
 
-          await supabaseAdmin
+          let updateQuery = supabaseAdmin
             .from("appointments")
             .update(updateData)
             .eq("id", p.id)
             .eq("business_id", businessId);
+
+          if (scopedEmployeeId) {
+            updateQuery = updateQuery.eq("employee_id", scopedEmployeeId);
+          }
+
+          await updateQuery;
         } else if (action.type === "APPOINTMENT_CANCEL") {
-          await supabaseAdmin
+          let cancelQuery = supabaseAdmin
             .from("appointments")
             .update({ status: "cancelled" })
             .eq("id", action.payload.id)
             .eq("business_id", businessId);
+
+          if (scopedEmployeeId) {
+            cancelQuery = cancelQuery.eq("employee_id", scopedEmployeeId);
+          }
+
+          await cancelQuery;
         }
 
         // Record dedup
