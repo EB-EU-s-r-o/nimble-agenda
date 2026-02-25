@@ -303,17 +303,7 @@ serve(async (req) => {
       expires_at: expiresAt.toISOString(),
     });
 
-    // 8. Send confirmation email (fire-and-forget)
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    fetch(`${supabaseUrl}/functions/v1/send-booking-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceRoleKey}`,
-      },
-      body: JSON.stringify({ appointment_id: appointment.id, business_id }),
-    }).catch((e) => console.error("Email trigger failed:", e));
+    // Email notifications are triggered on backend by DB trigger.
 
     return new Response(
       JSON.stringify({
