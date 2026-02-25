@@ -13,7 +13,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
 function validateInput(body: Record<string, unknown>): { error?: string } {
-  const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone } = body;
+  const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone, idempotency_key } = body;
 
   if (!business_id || !service_id || !employee_id || !start_at || !customer_name || !customer_email) {
     return { error: "Chýbajúce povinné polia" };
@@ -38,6 +38,12 @@ function validateInput(body: Record<string, unknown>): { error?: string } {
   if (customer_phone !== undefined && customer_phone !== null && customer_phone !== "") {
     if (typeof customer_phone !== "string" || customer_phone.length > 30) {
       return { error: "Telefón max 30 znakov" };
+    }
+  }
+
+  if (idempotency_key !== undefined && idempotency_key !== null && idempotency_key !== "") {
+    if (typeof idempotency_key !== "string" || idempotency_key.length < 8 || idempotency_key.length > 120) {
+      return { error: "Neplatný idempotency_key" };
     }
   }
 
@@ -111,11 +117,39 @@ serve(async (req) => {
       customer_name,
       customer_email,
       customer_phone,
+      idempotency_key,
     } = body as Record<string, string>;
 
     const sanitizedName = customer_name.trim().slice(0, 200);
     const sanitizedEmail = normalizeEmail(customer_email).slice(0, 255);
     const sanitizedPhone = customer_phone ? String(customer_phone).trim().slice(0, 30) : null;
+
+
+    const idempotencyKeyFromHeader = req.headers.get("x-idempotency-key")?.trim();
+    const rawIdempotencyKey = idempotencyKeyFromHeader || idempotency_key || "";
+    const idempotencyKey = rawIdempotencyKey ? rawIdempotencyKey.slice(0, 120) : "";
+
+    if (idempotencyKey) {
+      const { data: dedupExisting } = await supabase
+        .from("sync_dedup")
+        .select("result")
+        .eq("idempotency_key", idempotencyKey)
+        .maybeSingle();
+
+      const previousAppointmentId = dedupExisting?.result?.appointment_id;
+      if (previousAppointmentId && typeof previousAppointmentId === "string") {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            appointment_id: previousAppointmentId,
+            idempotent_replay: true,
+            customer_email: sanitizedEmail,
+            customer_name: sanitizedName,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     // 0b. Rate limit: max 5 bookings per normalized email per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -275,9 +309,27 @@ serve(async (req) => {
 
     if (apptErr || !appointment) {
       console.error("Appointment creation error:", apptErr);
+      if (apptErr?.code === "23P01") {
+        return new Response(
+          JSON.stringify({ error: "Tento termín je už obsadený" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: "Chyba pri vytváraní rezervácie" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (idempotencyKey) {
+      await supabase.from("sync_dedup").upsert(
+        {
+          idempotency_key: idempotencyKey,
+          business_id,
+          action_type: "PUBLIC_BOOKING_CREATE",
+          result: { appointment_id: appointment.id },
+        },
+        { onConflict: "idempotency_key" }
       );
     }
 

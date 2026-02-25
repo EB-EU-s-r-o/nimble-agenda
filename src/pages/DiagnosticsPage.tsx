@@ -1,17 +1,14 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-const DIAGNOSTICS_KEY = "diagnostics";
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 const EXPECTED_PROJECT_REF = "eudwjgdijylsgcnncxeg";
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
 
 export default function DiagnosticsPage() {
-  const [searchParams] = useSearchParams();
   const [envSet, setEnvSet] = useState<boolean | null>(null);
   const [supabaseUrlHost, setSupabaseUrlHost] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<TestStatus>("idle");
@@ -23,8 +20,7 @@ export default function DiagnosticsPage() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const allowed =
-    import.meta.env.DEV === true ||
-    searchParams.get("key") === DIAGNOSTICS_KEY;
+    import.meta.env.DEV === true;
 
   useEffect(() => {
     const raw = import.meta.env.VITE_SUPABASE_URL;

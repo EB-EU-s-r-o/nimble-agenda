@@ -19,6 +19,14 @@ const EMPLOYEE_PHOTOS: Record<string, string> = {
   "c1000000-0000-0000-0000-000000000002": matoImg,
 };
 
+
+const makeIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `booking-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 const contactSchema = z.object({
   meno: z.string().min(2, "Meno musí mať aspoň 2 znaky"),
   priezvisko: z.string().min(2, "Priezvisko musí mať aspoň 2 znaky"),
@@ -282,7 +290,11 @@ export default function BookingPage() {
     }
 
     try {
+      const idempotencyKey = makeIdempotencyKey();
       const { data, error } = await supabase.functions.invoke("create-public-booking", {
+        headers: {
+          "x-idempotency-key": idempotencyKey,
+        },
         body: {
           business_id: DEMO_BUSINESS_ID,
           service_id: selectedServiceId,
@@ -291,6 +303,7 @@ export default function BookingPage() {
           customer_name: `${formData.meno} ${formData.priezvisko}`.trim(),
           customer_email: formData.email,
           customer_phone: formData.phone || undefined,
+          idempotency_key: idempotencyKey,
         },
       });
 
