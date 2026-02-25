@@ -10,6 +10,7 @@ import { useTheme } from "next-themes";
 import { User, Mail, Phone, PenLine, ChevronLeft, ChevronRight, Star, Check, Moon, Sun, Loader2 } from "lucide-react";
 import miskaImg from "@/assets/employee-miska.jpeg";
 import matoImg from "@/assets/employee-mato.jpg";
+import { resolveBookingTenantHint } from "@/lib/tenantResolver";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 
@@ -34,7 +35,7 @@ interface ServiceRow {
   duration_minutes: number;
   buffer_minutes: number;
   is_active: boolean;
-  business_id: string;
+  business_id?: string;
   category: string | null;
   subcategory: string | null;
 }
@@ -45,8 +46,9 @@ interface EmployeeRow {
   email: string | null;
   phone: string | null;
   is_active: boolean;
-  business_id: string;
+  business_id?: string;
   photo_url: string | null;
+  has_schedule?: boolean;
 }
 
 interface BookingResult {
@@ -67,6 +69,8 @@ export default function BookingPage() {
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
+  const [tenantNotFound, setTenantNotFound] = useState(false);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
 
   // Booking states
   const [category, setCategory] = useState<"damske" | "panske">("damske");
@@ -92,35 +96,65 @@ export default function BookingPage() {
   // Load initial data
   useEffect(() => {
     const load = async () => {
-      const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
-        supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
-        supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-        supabase.functions.invoke("list-bookable-providers", { body: { business_id: DEMO_BUSINESS_ID } }),
-        supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
-        supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
-      ]);
-      setBusiness(bizRes.data);
-      setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
-      setEmployees(((empRes.data as any)?.providers ?? []) as EmployeeRow[]);
-      setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
-        day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
-      })));
-      setDateOverrides((bdoRes.data ?? []).map((o: Tables<"business_date_overrides">) => ({
-        override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
-      })));
+      setInitialLoading(true);
+      setTenantNotFound(false);
+      setLoadingError(null);
 
-      const empIds = (((empRes.data as any)?.providers ?? []) as EmployeeRow[]).map((e) => e.id);
-      if (empIds.length) {
-        const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
-        const map: Record<string, EmployeeSchedule[]> = {};
-        (scheds ?? []).forEach((s: Tables<"schedules">) => {
-          if (!map[s.employee_id]) map[s.employee_id] = [];
-          map[s.employee_id].push(s);
-        });
-        setSchedules(map);
+      const { slug, devBusinessId } = resolveBookingTenantHint(new URL(window.location.href));
+
+      try {
+        let bizRes;
+        if (slug) {
+          bizRes = await supabase.from("businesses").select("*").eq("slug", slug).maybeSingle();
+        } else if (import.meta.env.DEV && devBusinessId) {
+          // DEV-only fallback for local testing when host/slug tenant resolution is unavailable.
+          bizRes = await supabase.from("businesses").select("*").eq("id", devBusinessId).maybeSingle();
+        } else if (import.meta.env.DEV) {
+          // DEV-only fallback to keep local booking smoke-tests convenient.
+          bizRes = await supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle();
+        } else {
+          setTenantNotFound(true);
+          setInitialLoading(false);
+          return;
+        }
+
+        if (bizRes.error || !bizRes.data) {
+          setTenantNotFound(true);
+          setInitialLoading(false);
+          return;
+        }
+
+        const businessId = bizRes.data.id;
+        const [svcRes, empRes, bhRes, bdoRes] = await Promise.all([
+          supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).order("name_sk"),
+          (supabase as any).rpc("get_bookable_service_providers", { p_business_id: businessId, p_service_id: null }),
+          supabase.from("business_hours").select("*").eq("business_id", businessId).order("sort_order"),
+          supabase.from("business_date_overrides").select("*").eq("business_id", businessId).gte("override_date", new Date().toISOString().slice(0, 10)),
+        ]);
+
+        setBusiness(bizRes.data);
+        setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
+        setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
+        setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
+          day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
+        })));
+        setDateOverrides((bdoRes.data ?? []).map((o: Tables<"business_date_overrides">) => ({
+          override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
+        })));
+
+        const empIds = (empRes.data ?? []).map((e: EmployeeRow) => e.id);
+        if (empIds.length) {
+          const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
+          const map: Record<string, EmployeeSchedule[]> = {};
+          (scheds ?? []).forEach((s: Tables<"schedules">) => {
+            if (!map[s.employee_id]) map[s.employee_id] = [];
+            map[s.employee_id].push(s);
+          });
+          setSchedules(map);
+        }
+      } catch {
+        setLoadingError("Nepodarilo sa načítať dostupné rezervácie. Skúste to znova neskôr.");
       }
-
-
       setInitialLoading(false);
     };
     load();
@@ -142,28 +176,35 @@ export default function BookingPage() {
 
   const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
 
-  // Providers are server-filtered to bookable employees only.
-  const filteredEmployees = useMemo(() => employees, [employees]);
-
   useEffect(() => {
+    if (!business?.id) {
+      setEmployees([]);
+      return;
+    }
+
     const loadProviders = async () => {
-      const { data, error } = await supabase.functions.invoke("list-bookable-providers", {
-        body: { business_id: DEMO_BUSINESS_ID, service_id: selectedServiceId ?? undefined },
+      const { data } = await (supabase as any).rpc("get_bookable_service_providers", {
+        p_business_id: business.id,
+        p_service_id: selectedServiceId,
       });
-      if (error) {
-        toast.error("Nepodarilo sa načítať dostupných pracovníkov");
-        return;
-      }
-      const providers = ((data as any)?.providers ?? []) as EmployeeRow[];
-      setEmployees(providers);
-      if (selectedWorkerId && !providers.some((p) => p.id === selectedWorkerId)) {
-        setSelectedWorkerId(null);
-      }
+
+      setEmployees((data ?? []) as EmployeeRow[]);
     };
+
     loadProviders();
-  }, [selectedServiceId, selectedWorkerId]);
+  }, [selectedServiceId, business?.id]);
+
+  const filteredEmployees = employees;
 
   const selectedEmployee = employees.find((e) => e.id === selectedWorkerId) ?? null;
+  useEffect(() => {
+    if (selectedWorkerId && !employees.some((e) => e.id === selectedWorkerId)) {
+      setSelectedWorkerId(null);
+      setSelectedDate(null);
+      setSelectedTime(null);
+    }
+  }, [employees, selectedWorkerId]);
+
 
   // Calendar helpers
   const today = startOfDay(new Date());
@@ -257,6 +298,11 @@ export default function BookingPage() {
 
   // Submit booking
   const handleSubmit = async () => {
+    if (!business?.id) {
+      toast.error("Business not found");
+      return;
+    }
+
     const result = contactSchema.safeParse(formData);
     if (!result.success) {
       const errs: Record<string, string> = {};
@@ -282,7 +328,7 @@ export default function BookingPage() {
     try {
       const { data, error } = await supabase.functions.invoke("create-public-booking", {
         body: {
-          business_id: DEMO_BUSINESS_ID,
+          business_id: business.id,
           service_id: selectedServiceId,
           employee_id: selectedWorkerId,
           start_at: slotDate.toISOString(),
@@ -335,6 +381,26 @@ export default function BookingPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (tenantNotFound) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center space-y-3 max-w-sm">
+          <h1 className="text-3xl font-bold text-foreground">404</h1>
+          <p className="text-lg font-medium text-foreground">Business not found</p>
+          <p className="text-sm text-muted-foreground">Skontrolujte prosím URL adresu alebo kontaktujte prevádzku.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <p className="text-sm text-muted-foreground text-center">{loadingError}</p>
       </div>
     );
   }
@@ -481,11 +547,16 @@ export default function BookingPage() {
           <div className="animate-fade-in">
             <StepHeader num="3" title="Vyberte pracovníka" />
             <div className="flex flex-col gap-4">
-              {filteredEmployees.map((w) => (
+              {filteredEmployees.length === 0 && (
+                <p className="text-sm text-muted-foreground">Pre vybranú službu momentálne nie je dostupný žiadny pracovník.</p>
+              )}
+              {filteredEmployees.map((w) => {
+                const disabled = w.has_schedule === false;
+                return (
                 <div
                   key={w.id}
-                  onClick={() => { setSelectedWorkerId(w.id); setSelectedDate(null); setSelectedTime(null); }}
-                  className={`border rounded-[2rem] p-2 flex items-center gap-4 cursor-pointer transition-all duration-200 ${selectedWorkerId === w.id
+                  onClick={() => { if (!disabled) { setSelectedWorkerId(w.id); setSelectedDate(null); setSelectedTime(null); } }}
+                  className={`border rounded-[2rem] p-2 flex items-center gap-4 transition-all duration-200 ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${selectedWorkerId === w.id
                     ? "border-primary bg-card"
                     : "border-border bg-card"
                     }`}
@@ -500,11 +571,14 @@ export default function BookingPage() {
                       />
                     </div>
                     <div className="w-2/3 flex items-center justify-center bg-background dark:bg-card">
-                      <span className="font-bold text-lg tracking-wide text-primary">{w.display_name}</span>
+                      <div className="text-center">
+                        <span className="font-bold text-lg tracking-wide text-primary block">{w.display_name}</span>
+                        {disabled && <span className="text-xs text-muted-foreground">Bez pracovného času</span>}
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         )}

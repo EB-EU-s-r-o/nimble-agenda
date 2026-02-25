@@ -1,11 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { buildCorsHeaders, getAllowedOrigins, isAllowedOrigin } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+const allowedOrigins = getAllowedOrigins();
 
 interface SmtpConfig {
   host: string;
@@ -15,18 +12,147 @@ interface SmtpConfig {
   from: string;
 }
 
+type ReservationEvent = "reservation.created" | "reservation.updated" | "reservation.cancelled";
+type RecipientKind = "admin" | "employee" | "customer";
+
+interface Recipient {
+  email: string;
+  kind: RecipientKind;
+  profileId?: string;
+}
+
+const EVENT_META: Record<ReservationEvent, { label: string; subjectPrefix: string }> = {
+  "reservation.created": { label: "Nová rezervácia", subjectPrefix: "Nová rezervácia" },
+  "reservation.updated": { label: "Zmena rezervácie", subjectPrefix: "Zmena rezervácie" },
+  "reservation.cancelled": { label: "Zrušená rezervácia", subjectPrefix: "Zrušená rezervácia" },
+};
+
+function isNotificationsEnabled(settings: unknown, eventType: ReservationEvent): boolean {
+  if (!settings || typeof settings !== "object") return true;
+  const record = settings as Record<string, unknown>;
+
+  if (record.emailNotificationsEnabled === false) return false;
+
+  const eventFlagMap: Record<ReservationEvent, string> = {
+    "reservation.created": "reservationCreated",
+    "reservation.updated": "reservationUpdated",
+    "reservation.cancelled": "reservationCancelled",
+  };
+
+  const key = eventFlagMap[eventType];
+  if (key in record && record[key] === false) return false;
+
+  return true;
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function buildAdminHtml(payload: Record<string, string | null>) {
+  return `
+  <h2>${payload.eventLabel}</h2>
+  <p><strong>Dátum:</strong> ${payload.dateStr}</p>
+  <p><strong>Čas:</strong> ${payload.timeStr}</p>
+  <p><strong>Zákazník:</strong> ${payload.customerName}</p>
+  <p><strong>Služba:</strong> ${payload.serviceName}</p>
+  <p><strong>Zamestnanec:</strong> ${payload.employeeName}</p>
+  ${payload.notes ? `<p><strong>Poznámka:</strong> ${payload.notes}</p>` : ""}
+  <p><strong>Stav:</strong> ${payload.status}</p>
+  ${payload.appointmentLink ? `<p><a href="${payload.appointmentLink}">Otvoriť detail rezervácie</a></p>` : ""}
+  <hr />
+  <p style="color:#666">Typ príjemcu: admin/manager</p>
+`;
+}
+
+function buildEmployeeHtml(payload: Record<string, string | null>) {
+  return `${buildAdminHtml(payload)}<p style="color:#666">Typ príjemcu: employee</p>`;
+}
+
+
+async function sendWithRetry(client: SMTPClient, message: { from: string; to: string; subject: string; html: string }, attempts = 2) {
+  let lastError: unknown = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await client.send(message);
+      return;
+    } catch (error) {
+      lastError = error;
+      console.warn("Email send attempt failed", { to: message.to, attempt: i + 1, error: String(error) });
+    }
+  }
+  throw lastError;
+}
+
+function buildCustomerHtml(payload: Record<string, string | null>) {
+  return `
+  <h2>${payload.eventLabel}</h2>
+  <p>Dobrý deň ${payload.customerName},</p>
+  <p>tu sú aktuálne detaily vašej rezervácie:</p>
+  <p><strong>Dátum:</strong> ${payload.dateStr}</p>
+  <p><strong>Čas:</strong> ${payload.timeStr}</p>
+  <p><strong>Služba:</strong> ${payload.serviceName}</p>
+  <p><strong>Zamestnanec:</strong> ${payload.employeeName}</p>
+  <p><strong>Stav:</strong> ${payload.status}</p>
+  ${payload.notes ? `<p><strong>Poznámka:</strong> ${payload.notes}</p>` : ""}
+`;
+}
+
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = buildCorsHeaders(origin, allowedOrigins);
+
+  if (!isAllowedOrigin(origin, allowedOrigins)) {
+    return new Response(JSON.stringify({ error: "CORS origin denied" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "").trim();
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isServiceRoleInvocation = token.length > 0 && token === serviceRoleKey;
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { appointment_id, business_id } = await req.json();
+    let callerProfileId: string | null = null;
+
+    if (!isServiceRoleInvocation) {
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+      if (userError || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      callerProfileId = userData.user.id;
+    }
+
+    const { appointment_id, business_id, event_type } = await req.json();
+    const reservationEvent = (event_type || "reservation.created") as ReservationEvent;
 
     if (!appointment_id || !business_id) {
       return new Response(
@@ -35,10 +161,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Load SMTP config from business
+    if (!isServiceRoleInvocation) {
+      const { data: callerMembership } = await supabase
+        .from("memberships")
+        .select("role")
+        .eq("business_id", business_id)
+        .eq("profile_id", callerProfileId)
+        .maybeSingle();
+
+      if (!callerMembership || !["owner", "admin", "employee"].includes(callerMembership.role)) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (!(reservationEvent in EVENT_META)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid event_type" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data: business, error: bizErr } = await supabase
       .from("businesses")
-      .select("name, smtp_config, timezone")
+      .select("name, smtp_config, timezone, slug")
       .eq("id", business_id)
       .single();
 
@@ -58,10 +206,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Load appointment details
     const { data: appt, error: apptErr } = await supabase
       .from("appointments")
-      .select("*, customers(full_name, email, phone), services(name_sk, duration_minutes, price), employees(display_name)")
+      .select("*, customers(full_name, email, phone), services(name_sk, duration_minutes, price), employees(id, display_name, profile_id, is_active)")
       .eq("id", appointment_id)
       .single();
 
@@ -72,15 +219,66 @@ Deno.serve(async (req) => {
       );
     }
 
-    const customerEmail = appt.customers?.email;
-    if (!customerEmail || customerEmail.includes("@internal")) {
+    const { data: members } = await supabase
+      .from("memberships")
+      .select("role, profile_id, profiles(email)")
+      .eq("business_id", business_id)
+      .in("role", ["owner", "admin", "employee"] as never);
+
+    const { data: notificationSettings } = await supabase
+      .from("user_notification_settings")
+      .select("profile_id, settings")
+      .eq("business_id", business_id);
+
+    const settingsByProfile = new Map<string, Record<string, unknown>>(
+      (notificationSettings || []).map((s: { profile_id: string; settings: Record<string, unknown> }) => [s.profile_id, s.settings])
+    );
+
+    const recipientsByEmail = new Map<string, Recipient>();
+
+    for (const m of members || []) {
+      const email = m.profiles?.email ? normalizeEmail(String(m.profiles.email)) : "";
+      if (!email) {
+        console.warn("Skipping recipient without email", { profile_id: m.profile_id, role: m.role, appointment_id });
+        continue;
+      }
+
+      const settings = settingsByProfile.get(m.profile_id);
+      if (!isNotificationsEnabled(settings, reservationEvent)) continue;
+
+      if (m.role === "owner" || m.role === "admin") {
+        recipientsByEmail.set(email, { email, kind: "admin", profileId: m.profile_id });
+        continue;
+      }
+
+      if (m.role === "employee") {
+        const employeeMatchesReservation =
+          appt.employees?.profile_id &&
+          m.profile_id === appt.employees.profile_id &&
+          appt.employee_id === appt.employees.id &&
+          appt.employees.is_active;
+
+        if (employeeMatchesReservation) {
+          recipientsByEmail.set(email, { email, kind: "employee", profileId: m.profile_id });
+        }
+      }
+    }
+
+    const customerEmail = appt.customers?.email ? normalizeEmail(appt.customers.email) : "";
+    if (customerEmail && !customerEmail.includes("@internal")) {
+      recipientsByEmail.set(customerEmail, { email: customerEmail, kind: "customer" });
+    } else if (!customerEmail) {
+      console.warn("Customer has no email, skipping customer notification", { appointment_id });
+    }
+
+    const recipients = [...recipientsByEmail.values()];
+    if (recipients.length === 0) {
       return new Response(
-        JSON.stringify({ skipped: true, reason: "No valid customer email" }),
+        JSON.stringify({ skipped: true, reason: "No eligible recipients" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 3. Format date/time
     const startDate = new Date(appt.start_at);
     const dateStr = startDate.toLocaleDateString("sk-SK", {
       weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -92,94 +290,71 @@ Deno.serve(async (req) => {
     });
 
     const serviceName = appt.services?.name_sk ?? "Služba";
-    const employeeName = appt.employees?.display_name ?? "";
-    const duration = appt.services?.duration_minutes ?? 30;
-    const price = appt.services?.price;
-    const customerName = appt.customers?.full_name ?? "";
+    const employeeName = appt.employees?.display_name ?? "-";
+    const customerName = appt.customers?.full_name ?? "zákazník";
 
-    // 4. Build HTML email
-    const html = `
-<!DOCTYPE html>
-<html lang="sk">
-<head><meta charset="UTF-8"></head>
-<body style="font-family: 'Segoe UI', Tahoma, sans-serif; background: #f4f4f7; margin: 0; padding: 20px;">
-  <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 28px 24px; text-align: center;">
-      <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">${business.name}</h1>
-      <p style="color: #a0aec0; margin: 8px 0 0; font-size: 14px;">Potvrdenie rezervácie</p>
-    </div>
-    <div style="padding: 28px 24px;">
-      <p style="font-size: 16px; color: #2d3748; margin: 0 0 20px;">
-        Dobrý deň${customerName ? `, <strong>${customerName}</strong>` : ""},
-      </p>
-      <p style="font-size: 14px; color: #4a5568; margin: 0 0 20px;">
-        Vaša rezervácia bola úspešne potvrdená. Tu sú detaily:
-      </p>
-      <div style="background: #f7fafc; border-radius: 8px; padding: 16px; margin: 0 0 20px;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          <tr>
-            <td style="padding: 6px 0; color: #718096; width: 110px;">Služba:</td>
-            <td style="padding: 6px 0; color: #2d3748; font-weight: 600;">${serviceName}</td>
-          </tr>
-          ${employeeName ? `<tr>
-            <td style="padding: 6px 0; color: #718096;">Zamestnanec:</td>
-            <td style="padding: 6px 0; color: #2d3748;">${employeeName}</td>
-          </tr>` : ""}
-          <tr>
-            <td style="padding: 6px 0; color: #718096;">Dátum:</td>
-            <td style="padding: 6px 0; color: #2d3748; font-weight: 600;">${dateStr}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #718096;">Čas:</td>
-            <td style="padding: 6px 0; color: #2d3748; font-weight: 600;">${timeStr}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 0; color: #718096;">Trvanie:</td>
-            <td style="padding: 6px 0; color: #2d3748;">${duration} minút</td>
-          </tr>
-          ${price ? `<tr>
-            <td style="padding: 6px 0; color: #718096;">Cena:</td>
-            <td style="padding: 6px 0; color: #2d3748; font-weight: 600;">${price} €</td>
-          </tr>` : ""}
-        </table>
-      </div>
-      <p style="font-size: 13px; color: #718096; margin: 0; line-height: 1.6;">
-        Ak potrebujete rezerváciu zrušiť alebo zmeniť, kontaktujte nás prosím vopred.
-      </p>
-    </div>
-    <div style="background: #f7fafc; padding: 16px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="font-size: 12px; color: #a0aec0; margin: 0;">${business.name} · Automatická správa</p>
-    </div>
-  </div>
-</body>
-</html>`;
+    const payload = {
+      eventLabel: EVENT_META[reservationEvent].label,
+      dateStr,
+      timeStr,
+      customerName,
+      serviceName,
+      employeeName,
+      notes: appt.notes || null,
+      status: String(appt.status),
+      appointmentLink: business.slug ? `${Deno.env.get("PUBLIC_APP_URL") ?? ""}/admin/appointments/${appointment_id}` : null,
+    };
 
-    // 5. Send email via SMTP
     const client = new SMTPClient({
       connection: {
         hostname: smtp.host,
         port: smtp.port || 465,
         tls: true,
-        auth: {
-          username: smtp.user,
-          password: smtp.pass,
-        },
+        auth: { username: smtp.user, password: smtp.pass },
       },
     });
 
-    await client.send({
-      from: smtp.from || smtp.user,
-      to: customerEmail,
-      subject: `Potvrdenie rezervácie – ${serviceName} (${dateStr})`,
-      html,
-    });
+    const subject = `${EVENT_META[reservationEvent].subjectPrefix} – ${dateStr} ${timeStr} – ${employeeName}`;
+    const results: Array<{ email: string; kind: RecipientKind; success: boolean; error?: string }> = [];
+
+    for (const recipient of recipients) {
+      try {
+        const html = recipient.kind === "customer"
+          ? buildCustomerHtml(payload)
+          : recipient.kind === "employee"
+            ? buildEmployeeHtml(payload)
+            : buildAdminHtml(payload);
+
+        await sendWithRetry(client, {
+          from: smtp.from || smtp.user,
+          to: recipient.email,
+          subject,
+          html,
+        });
+
+        results.push({ email: recipient.email, kind: recipient.kind, success: true });
+      } catch (error) {
+        console.error("Email send failure", { recipient, error: String(error), appointment_id, reservationEvent });
+        results.push({ email: recipient.email, kind: recipient.kind, success: false, error: String(error) });
+      }
+    }
 
     await client.close();
 
-    console.log(`Confirmation email sent to ${customerEmail} for appointment ${appointment_id}`);
+    await supabase.from("reservation_notification_logs").insert(
+      results.map((r) => ({
+        appointment_id,
+        business_id,
+        event_type: reservationEvent,
+        recipient_email: r.email,
+        recipient_type: r.kind,
+        success: r.success,
+        error_message: r.error ?? null,
+      }))
+    );
 
     return new Response(
-      JSON.stringify({ success: true, sent_to: customerEmail }),
+      JSON.stringify({ success: true, event_type: reservationEvent, results }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
