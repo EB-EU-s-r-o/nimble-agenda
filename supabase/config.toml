@@ -14,7 +14,7 @@ project_id = "your-firebase-project-id"
 verify_jwt = false
 
 [functions.claim-booking]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-push]
 verify_jwt = true
@@ -29,7 +29,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.send-booking-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.save-smtp-config]
 verify_jwt = true
