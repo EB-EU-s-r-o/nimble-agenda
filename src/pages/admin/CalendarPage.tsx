@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, dateFnsLocalizer, View, SlotInfo } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay, addMinutes, startOfDay, addDays } from "date-fns";
+import { DateTime } from "luxon";
 import { sk } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/styles/big-calendar-overrides.css";
@@ -16,6 +17,13 @@ import { toast } from "sonner";
 import { Loader2, User, Clock, Phone, X, Check } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
 import { format as fmtDate } from "date-fns";
+import { CalendarEventCard } from "@/components/calendar/CalendarEventCard";
+import {
+  DEFAULT_BUSINESS_TIMEZONE,
+  normalizeAppointmentEvent,
+  type NormalizedCalendarEvent,
+  type RawAppointmentEvent,
+} from "@/lib/calendarEventUtils";
 
 const localizer = dateFnsLocalizer({
   format,
@@ -38,13 +46,10 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Zrušená", completed: "Dokončená",
 };
 
-interface CalEvent {
-  id: string; title: string; start: Date; end: Date; status: string; resource: any;
-}
 
 export default function CalendarPage() {
   const { businessId, isOwnerOrAdmin } = useBusiness();
-  const [events, setEvents] = useState<CalEvent[]>([]);
+  const [events, setEvents] = useState<NormalizedCalendarEvent[]>([]);
   const [view, setView] = useState<View>("week");
   const [date, setDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -60,7 +65,7 @@ export default function CalendarPage() {
   const [saving, setSaving] = useState(false);
 
   const [detailModal, setDetailModal] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<NormalizedCalendarEvent | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const loadEvents = useCallback(async () => {
@@ -71,13 +76,10 @@ export default function CalendarPage() {
       .eq("business_id", businessId)
       .order("start_at");
     if (data) {
-      setEvents(data.map((a) => ({
-        id: a.id, title: `${a.customers?.full_name ?? "?"} – ${a.services?.name_sk ?? "?"}`,
-        start: new Date(a.start_at), end: new Date(a.end_at), status: a.status, resource: a,
-      })));
+      setEvents(data.map((a) => normalizeAppointmentEvent(a as RawAppointmentEvent, business?.timezone ?? DEFAULT_BUSINESS_TIMEZONE)));
     }
     setLoading(false);
-  }, [businessId]);
+  }, [businessId, business?.timezone]);
 
   useEffect(() => {
     loadEvents();
@@ -160,7 +162,7 @@ export default function CalendarPage() {
     setBookingModal(true);
   };
 
-  const handleSelectEvent = (event: CalEvent) => { setSelectedEvent(event); setDetailModal(true); };
+  const handleSelectEvent = (event: NormalizedCalendarEvent) => { setSelectedEvent(event); setDetailModal(true); };
 
   const handleBook = async () => {
     if (!bookForm.service_id || !bookForm.employee_id || !bookForm.start_at) { toast.error("Vyplňte všetky polia"); return; }
@@ -209,7 +211,9 @@ export default function CalendarPage() {
           localizer={localizer} events={events} view={view} onView={setView}
           date={date} onNavigate={setDate} culture="sk" messages={SK_MESSAGES}
           selectable={isOwnerOrAdmin} onSelectSlot={handleSelectSlot} onSelectEvent={handleSelectEvent}
-          eventPropGetter={(e: CalEvent) => ({ className: `status-${e.status}` })}
+          eventPropGetter={(e: NormalizedCalendarEvent) => ({ className: `status-${e.status}` })}
+          components={{ event: ({ event }) => <CalendarEventCard event={event as NormalizedCalendarEvent} /> }}
+          dayLayoutAlgorithm="no-overlap"
           step={30} timeslots={2} popup style={{ height: "100%" }}
         />
       </div>
@@ -289,7 +293,7 @@ export default function CalendarPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span>{fmtDate(selectedEvent.start, "d. M. yyyy HH:mm")} – {fmtDate(selectedEvent.end, "HH:mm")}</span>
+                  <span>{DateTime.fromJSDate(selectedEvent.start).setZone(selectedEvent.timezone).toFormat("d. M. yyyy HH:mm")} – {DateTime.fromJSDate(selectedEvent.end).setZone(selectedEvent.timezone).toFormat("HH:mm")}</span>
                 </div>
               </div>
               {isOwnerOrAdmin && selectedEvent.status !== "cancelled" && selectedEvent.status !== "completed" && (
