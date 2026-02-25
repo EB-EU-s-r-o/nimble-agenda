@@ -16,7 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:responsive": "playwright test --config=e2e/playwright.config.ts",
-    "test:responsive:preview": "npm run build && playwright test --config=e2e/playwright.config.preview.ts"
+    "test:responsive:preview": "npm run build && playwright test --config=e2e/playwright.config.preview.ts",
+    "test:edge-security": "node scripts/edge-security-check.mjs",
+    "test:send-email-smoke": "node scripts/send-email-trigger-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -56,13 +58,14 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
-    "firebase": "^11.6.0",
     "embla-carousel-react": "^8.6.0",
+    "firebase": "^11.6.0",
     "framer-motion": "^12.34.3",
     "idb": "^8.0.1",
     "input-otp": "^1.4.2",
     "jimp": "^0.16.1",
     "lucide-react": "^0.462.0",
+    "luxon": "^3.7.2",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
     "react-big-calendar": "^1.19.4",

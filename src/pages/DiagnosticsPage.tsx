@@ -1,90 +1,40 @@
-import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-const DIAGNOSTICS_KEY = "diagnostics";
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
+const EXPECTED_PROJECT_REF = "eudwjgdijylsgcnncxeg";
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
 
-type ProviderStatus = {
-  status: TestStatus;
-  error: string | null;
-  urlHost: string | null;
-};
-
-const stripBom = (value: string | undefined) => (value ?? "").replace(/^\uFEFF/, "").trim();
-
-const extractProjectRefFromHost = (host: string | null) => {
-  if (!host) return null;
-  const [prefix] = host.split(".");
-  return prefix || null;
-};
-
-const readHost = (url: string | null) => {
-  if (!url) return null;
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return null;
-  }
-};
-
 export default function DiagnosticsPage() {
-  const [searchParams] = useSearchParams();
-
-  const [urlSet, setUrlSet] = useState<boolean | null>(null);
-  const [publishableKeySet, setPublishableKeySet] = useState<boolean | null>(null);
+  const [envSet, setEnvSet] = useState<boolean | null>(null);
   const [supabaseUrlHost, setSupabaseUrlHost] = useState<string | null>(null);
-
   const [dbStatus, setDbStatus] = useState<TestStatus>("idle");
   const [dbError, setDbError] = useState<string | null>(null);
-
-  const [servicesStatus, setServicesStatus] = useState<TestStatus>("idle");
-  const [servicesError, setServicesError] = useState<string | null>(null);
-  const [activeServicesCount, setActiveServicesCount] = useState<number | null>(null);
-
   const [rpcStatus, setRpcStatus] = useState<TestStatus>("idle");
   const [rpcError, setRpcError] = useState<string | null>(null);
-
   const [authStatus, setAuthStatus] = useState<TestStatus>("idle");
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [googleProvider, setGoogleProvider] = useState<ProviderStatus>({ status: "idle", error: null, urlHost: null });
-  const [githubProvider, setGithubProvider] = useState<ProviderStatus>({ status: "idle", error: null, urlHost: null });
-
-  const allowed = import.meta.env.DEV === true || searchParams.get("key") === DIAGNOSTICS_KEY;
+  const allowed = import.meta.env.DEV === true;
 
   useEffect(() => {
-    const rawUrl = stripBom(import.meta.env.VITE_SUPABASE_URL);
-    const rawKey = stripBom(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
-
-    setUrlSet(Boolean(rawUrl));
-    setPublishableKeySet(Boolean(rawKey));
-
-    if (!rawUrl) {
-      setSupabaseUrlHost(null);
-      return;
-    }
-
-    try {
-      const parsedUrl = new URL(rawUrl);
-      setSupabaseUrlHost(parsedUrl.hostname);
-    } catch {
-      setSupabaseUrlHost(rawUrl.slice(0, 80));
+    const raw = import.meta.env.VITE_SUPABASE_URL;
+    const url = (raw ?? "").replace(/^\uFEFF/, "").trim();
+    const ok = Boolean(url !== "");
+    setEnvSet(ok);
+    if (url) {
+      try {
+        const u = new URL(url);
+        setSupabaseUrlHost(u.hostname);
+      } catch {
+        setSupabaseUrlHost(String(url).slice(0, 50));
+      }
     }
   }, []);
-
-  const expectedProjectRef = useMemo(() => {
-    const byEnv = stripBom(import.meta.env.VITE_SUPABASE_PROJECT_ID);
-    if (byEnv) return byEnv;
-    return extractProjectRefFromHost(supabaseUrlHost);
-  }, [supabaseUrlHost]);
-
-  const hostProjectRef = useMemo(() => extractProjectRefFromHost(supabaseUrlHost), [supabaseUrlHost]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -92,9 +42,10 @@ export default function DiagnosticsPage() {
     const run = async () => {
       setDbStatus("loading");
       setDbError(null);
-
-      const { error } = await supabase.from("businesses").select("id").limit(1);
-
+      const { error } = await supabase
+        .from("businesses")
+        .select("id")
+        .limit(1);
       if (error) {
         setDbStatus("error");
         setDbError(error.message ?? "Chyba dotazu");
@@ -102,33 +53,6 @@ export default function DiagnosticsPage() {
         setDbStatus("ok");
       }
     };
-
-    run();
-  }, [allowed]);
-
-  useEffect(() => {
-    if (!allowed) return;
-
-    const run = async () => {
-      setServicesStatus("loading");
-      setServicesError(null);
-      setActiveServicesCount(null);
-
-      const { count, error } = await supabase
-        .from("services")
-        .select("id", { count: "exact", head: true })
-        .eq("business_id", DEMO_BUSINESS_ID)
-        .eq("is_active", true);
-
-      if (error) {
-        setServicesStatus("error");
-        setServicesError(error.message ?? "Chyba dotazu");
-      } else {
-        setServicesStatus("ok");
-        setActiveServicesCount(count ?? 0);
-      }
-    };
-
     run();
   }, [allowed]);
 
@@ -138,11 +62,9 @@ export default function DiagnosticsPage() {
     const run = async () => {
       setRpcStatus("loading");
       setRpcError(null);
-
       const { error } = await supabase.rpc("rpc_get_public_business_info", {
         _business_id: DEMO_BUSINESS_ID,
       });
-
       if (error) {
         setRpcStatus("error");
         setRpcError(error.message ?? "Chyba RPC");
@@ -150,7 +72,6 @@ export default function DiagnosticsPage() {
         setRpcStatus("ok");
       }
     };
-
     run();
   }, [allowed]);
 
@@ -160,9 +81,7 @@ export default function DiagnosticsPage() {
     const run = async () => {
       setAuthStatus("loading");
       setAuthError(null);
-
       const { data, error } = await supabase.auth.getSession();
-
       if (error) {
         setAuthStatus("error");
         setAuthError(error.message ?? "Chyba auth");
@@ -172,36 +91,7 @@ export default function DiagnosticsPage() {
         setHasSession(Boolean(data?.session));
       }
     };
-
     run();
-  }, [allowed]);
-
-  useEffect(() => {
-    if (!allowed) return;
-
-    const testProvider = async (
-      provider: "google" | "github",
-      setter: Dispatch<SetStateAction<ProviderStatus>>,
-    ) => {
-      setter({ status: "loading", error: null, urlHost: null });
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/admin`,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) {
-        setter({ status: "error", error: error.message ?? "OAuth chyba", urlHost: null });
-        return;
-      }
-
-      setter({ status: "ok", error: null, urlHost: readHost(data?.url ?? null) });
-    };
-
-    testProvider("google", setGoogleProvider);
-    testProvider("github", setGithubProvider);
   }, [allowed]);
 
   if (!allowed) {
@@ -211,19 +101,6 @@ export default function DiagnosticsPage() {
       </div>
     );
   }
-
-  const hasHostMismatch = Boolean(expectedProjectRef && hostProjectRef && hostProjectRef !== expectedProjectRef);
-  const expectedUrl = expectedProjectRef ? `https://${expectedProjectRef}.supabase.co` : null;
-
-  const hasAnyIssue =
-    dbStatus === "error" ||
-    servicesStatus === "error" ||
-    rpcStatus === "error" ||
-    googleProvider.status === "error" ||
-    githubProvider.status === "error" ||
-    hasHostMismatch ||
-    !urlSet ||
-    !publishableKeySet;
 
   return (
     <div className="min-h-screen p-4 md:p-6 max-w-2xl mx-auto">
@@ -235,16 +112,23 @@ export default function DiagnosticsPage() {
             <CardTitle className="text-base">Env</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">VITE_SUPABASE_URL: {urlSet === null ? "—" : urlSet ? "Áno" : "Nie"}</p>
-            <p className="text-sm text-muted-foreground">VITE_SUPABASE_PUBLISHABLE_KEY: {publishableKeySet === null ? "—" : publishableKeySet ? "Áno" : "Nie"}</p>
-
-            {supabaseUrlHost && <p className="text-sm font-mono break-all">Aktuálny host: {supabaseUrlHost}</p>}
-            {expectedProjectRef && <p className="text-sm text-muted-foreground">Očakávaný projekt: {expectedProjectRef}</p>}
-
-            {hasHostMismatch && (
-              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-                ⚠️ Nesúlad: app ukazuje na iný Supabase projekt. Skontroluj VITE_SUPABASE_URL a VITE_SUPABASE_PUBLISHABLE_KEY.
-              </p>
+            <p className="text-sm text-muted-foreground">
+              VITE_SUPABASE_URL: {envSet === null ? "—" : envSet ? "Áno" : "Nie"}
+            </p>
+            {supabaseUrlHost && (
+              <>
+                <p className="text-sm font-mono break-all">
+                  Aktuálny host: {supabaseUrlHost}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Očakávaný projekt: {EXPECTED_PROJECT_REF}
+                </p>
+                {!supabaseUrlHost.startsWith(EXPECTED_PROJECT_REF) && (
+                  <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                    ⚠️ Nesúlad: Vercel env ukazuje na iný Supabase projekt. Nastav VITE_SUPABASE_URL a VITE_SUPABASE_PUBLISHABLE_KEY z projektu {EXPECTED_PROJECT_REF}.
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -253,51 +137,21 @@ export default function DiagnosticsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">DB</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1">
+          <CardContent>
             {dbStatus === "idle" && <p className="text-sm text-muted-foreground">—</p>}
             {dbStatus === "loading" && (
               <span className="inline-flex items-center gap-2 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" /> Načítavam…
               </span>
             )}
-            {dbStatus === "ok" && <p className="text-sm text-green-600 dark:text-green-400">OK</p>}
-            {dbStatus === "error" && <p className="text-sm text-destructive">Chyba: {dbError ?? "neznáma"}</p>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Služby (demo business)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {servicesStatus === "idle" && <p className="text-sm text-muted-foreground">—</p>}
-            {servicesStatus === "loading" && (
-              <span className="inline-flex items-center gap-2 text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" /> Načítavam…
-              </span>
+            {dbStatus === "ok" && (
+              <p className="text-sm text-green-600 dark:text-green-400">OK</p>
             )}
-            {servicesStatus === "ok" && <p className="text-sm text-green-600 dark:text-green-400">OK (aktívne služby: {activeServicesCount ?? 0})</p>}
-            {servicesStatus === "error" && <p className="text-sm text-destructive">Chyba: {servicesError ?? "neznáma"}</p>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">OAuth provideri</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div>
-              <p className="font-medium">Google</p>
-              {googleProvider.status === "loading" && <p className="text-muted-foreground inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Testujem…</p>}
-              {googleProvider.status === "ok" && <p className="text-green-600 dark:text-green-400">OK{googleProvider.urlHost ? ` (redirect host: ${googleProvider.urlHost})` : ""}</p>}
-              {googleProvider.status === "error" && <p className="text-destructive">Chyba: {googleProvider.error ?? "neznáma"}</p>}
-            </div>
-            <div>
-              <p className="font-medium">GitHub</p>
-              {githubProvider.status === "loading" && <p className="text-muted-foreground inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Testujem…</p>}
-              {githubProvider.status === "ok" && <p className="text-green-600 dark:text-green-400">OK{githubProvider.urlHost ? ` (redirect host: ${githubProvider.urlHost})` : ""}</p>}
-              {githubProvider.status === "error" && <p className="text-destructive">Chyba: {githubProvider.error ?? "neznáma"}</p>}
-            </div>
+            {dbStatus === "error" && (
+              <p className="text-sm text-destructive">
+                Chyba: {dbError ?? "neznáma"}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -312,8 +166,14 @@ export default function DiagnosticsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" /> Načítavam…
               </span>
             )}
-            {rpcStatus === "ok" && <p className="text-sm text-green-600 dark:text-green-400">OK</p>}
-            {rpcStatus === "error" && <p className="text-sm text-destructive">Chyba: {rpcError ?? "neznáma"}</p>}
+            {rpcStatus === "ok" && (
+              <p className="text-sm text-green-600 dark:text-green-400">OK</p>
+            )}
+            {rpcStatus === "error" && (
+              <p className="text-sm text-destructive">
+                Chyba: {rpcError ?? "neznáma"}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -328,38 +188,30 @@ export default function DiagnosticsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" /> Načítavam…
               </span>
             )}
-            {authStatus === "ok" && <p className="text-sm text-muted-foreground">Session: {hasSession ? "áno" : "nie"}</p>}
-            {authStatus === "error" && <p className="text-sm text-destructive">Chyba: {authError ?? "neznáma"}</p>}
+            {authStatus === "ok" && (
+              <p className="text-sm text-muted-foreground">
+                Session: {hasSession ? "áno" : "nie"}
+              </p>
+            )}
+            {authStatus === "error" && (
+              <p className="text-sm text-destructive">
+                Chyba: {authError ?? "neznáma"}
+              </p>
+            )}
           </CardContent>
         </Card>
 
-        {hasAnyIssue && (
+        {(dbStatus === "error" || rpcStatus === "error") && (
           <Card className="border-amber-500/50 bg-amber-500/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Rýchly postup</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>Ak je niečo červené vyššie, najčastejšie ide o env premenné, vypnutého OAuth providera alebo migrácie na inom projekte.</p>
+              <p>Tabuľky/RPC chýbajú v projekte, na ktorý ukazuje app.</p>
               <p className="font-medium text-foreground">Možnosť 1 (odporúčané):</p>
-              <p>
-                Vercel → Settings → Environment Variables. Nastav <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code>
-                {expectedUrl ? <span> = <code className="rounded bg-muted px-1">{expectedUrl}</code></span> : null}
-                {expectedProjectRef ? (
-                  <span> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z projektu <code className="rounded bg-muted px-1">{expectedProjectRef}</code>.</span>
-                ) : (
-                  <span> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z toho istého projektu.</span>
-                )}
-              </p>
-              <p className="font-medium text-foreground">Možnosť 2 (OAuth):</p>
-              <p>
-                Supabase Dashboard → Authentication → Providers. Zapni Google/GitHub, vyplň Client ID + Secret a do providera pridaj callback URL podľa Supabase.
-                Následne skontroluj v Authentication → URL Configuration, že <code className="rounded bg-muted px-1">Site URL</code> a redirect URL obsahujú tvoju doménu + <code className="rounded bg-muted px-1">/admin</code>.
-              </p>
-              <p className="font-medium text-foreground">Možnosť 3:</p>
-              <p>
-                Spusti migrácie na aktuálny projekt: SQL Editor v Supabase Dashboard (obsah <code className="rounded bg-muted px-1">supabase/migrations/run-all.sql</code>)
-                alebo skript <code className="rounded bg-muted px-1">./supabase-db-push-psql.ps1 -ProjectRef &lt;tvoj-project-ref&gt;</code>.
-              </p>
+              <p>Vercel → Settings → Environment Variables. Nastav <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code> = <code className="rounded bg-muted px-1">https://eudwjgdijylsgcnncxeg.supabase.co</code> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z Supabase projektu eudwjgdijylsgcnncxeg (Dashboard → Settings → API). Ulož a Redeploy.</p>
+              <p className="font-medium text-foreground">Možnosť 2:</p>
+              <p>Spusti migrácie na aktuálny projekt: SQL Editor v Supabase Dashboard (skopíruj <code className="rounded bg-muted px-1">supabase/migrations/run-all.sql</code>) alebo <code className="rounded bg-muted px-1">.\supabase-db-push-psql.ps1 -ProjectRef dssdiqojkktzfuwoulbq</code> (ak host je dssdiqojkktzfuwoulbq).</p>
             </CardContent>
           </Card>
         )}
