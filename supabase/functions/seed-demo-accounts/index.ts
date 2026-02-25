@@ -1,9 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders, getAllowedOrigins, isAllowedOrigin } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-seed-secret",
-};
+const allowedOrigins = getAllowedOrigins();
 
 const BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 
@@ -15,6 +13,16 @@ interface AccountResult {
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = buildCorsHeaders(origin, allowedOrigins);
+
+  if (!isAllowedOrigin(origin, allowedOrigins)) {
+    return new Response(JSON.stringify({ error: "CORS origin denied" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

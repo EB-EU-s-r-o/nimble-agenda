@@ -1,11 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { buildCorsHeaders, getAllowedOrigins, isAllowedOrigin } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+const allowedOrigins = getAllowedOrigins();
 
 interface SmtpConfig {
   host: string;
@@ -102,15 +99,57 @@ function buildCustomerHtml(payload: Record<string, string | null>) {
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = buildCorsHeaders(origin, allowedOrigins);
+
+  if (!isAllowedOrigin(origin, allowedOrigins)) {
+    return new Response(JSON.stringify({ error: "CORS origin denied" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "").trim();
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isServiceRoleInvocation = token.length > 0 && token === serviceRoleKey;
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    let callerProfileId: string | null = null;
+
+    if (!isServiceRoleInvocation) {
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+      if (userError || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      callerProfileId = userData.user.id;
+    }
 
     const { appointment_id, business_id, event_type } = await req.json();
     const reservationEvent = (event_type || "reservation.created") as ReservationEvent;
@@ -120,6 +159,22 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Missing appointment_id or business_id" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (!isServiceRoleInvocation) {
+      const { data: callerMembership } = await supabase
+        .from("memberships")
+        .select("role")
+        .eq("business_id", business_id)
+        .eq("profile_id", callerProfileId)
+        .maybeSingle();
+
+      if (!callerMembership || !["owner", "admin", "employee"].includes(callerMembership.role)) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     if (!(reservationEvent in EVENT_META)) {
