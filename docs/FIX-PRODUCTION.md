@@ -21,7 +21,7 @@
    vercel --prod
    ```
 
-Po dokončení otvor https://nimble-agenda.vercel.app/diagnostics?key=diagnostics – DB a RPC by mali byť OK; potom /booking – služby sa zobrazia.
+Po dokončení over env/DB/RPC cez internú diagnostics stránku v development/admin prostredí, potom na produkcii over /booking.
 
 ### Možnosť B: Spustiť migrácie na projekte, na ktorý už Vercel ukazuje
 
@@ -30,6 +30,6 @@ Ak vo Vercel chceš nechať aktuálny projekt (napr. **dssdiqojkktzfuwoulbq**), 
 1. Otvor Supabase Dashboard → projekt **dssdiqojkktzfuwoulbq** (alebo ten, ktorý používa tvoj Vercel).
 2. **SQL Editor** → New query.
 3. Skopíruj celý obsah súboru **supabase/migrations/run-all.sql** z tohto repozitára a vlož do editora. Spusti (Run).
-4. Po úspechu otvor `/diagnostics?key=diagnostics` a `/booking` – mali by fungovať.
+4. Po úspechu over `/booking` – služby sa majú zobraziť (diagnostics je interný DEV/admin nástroj).
 
 Alternatíva z terminálu (ak máš heslo k DB): pozri [MIGRATIONS-TERMINAL.md](MIGRATIONS-TERMINAL.md), príkaz `.\supabase-db-push-psql.ps1 -ProjectRef dssdiqojkktzfuwoulbq`.

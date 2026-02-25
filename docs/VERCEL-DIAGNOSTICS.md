@@ -11,7 +11,7 @@ Po úspešnom `vercel --prod` over v prehliadači v tomto poradí:
 | # | Čo skontrolovať | Kde / ako |
 |---|-----------------|-----------|
 | 1 | **Úvodná stránka** | Otvor **https://nimble-agenda.vercel.app** – mala by sa zobraziť úvodná stránka (PAPI HAIR DESIGN BOOKING). |
-| 2 | **Env premenné** | Otvor **https://nimble-agenda.vercel.app/diagnostics?key=diagnostics** – sekcia **Env** musí ukazovať **VITE_SUPABASE_URL: Áno** a **Aktuálny host** by mal začínať na `eudwjgdijylsgcnncxeg`. |
+| 2 | **Env premenné** | Otvor internú diagnostics stránku **/diagnostics** (development/admin-internal) – sekcia **Env** musí ukazovať **VITE_SUPABASE_URL: Áno** a **Aktuálny host** by mal začínať na `eudwjgdijylsgcnncxeg`. |
 | 3 | **DB** | Na tej istej stránke diagnostiky – sekcia **DB** musí byť **OK** (zelené). |
 | 4 | **RPC** | Sekcia **RPC** musí byť **OK** (zelené). |
 | 5 | **Auth** | Sekcia **Auth** musí byť **OK**; **Session** môže byť „nie“ ak nie si prihlásený. |
@@ -46,7 +46,7 @@ Ak sú všetky body OK, produkcia je nastavená správne. Ak niečo zlyhá, pozr
 
 ## Voliteľná diagnostická stránka
 
-- [ ] Route `/diagnostics` (v production s `?key=diagnostics`) zobrazuje výsledky testov: jeden DB select, jeden RPC, stav auth (session áno/nie), bez vypisovania tokenov. V development je stránka dostupná vždy na `/diagnostics`.
+- [ ] Route `/diagnostics` (iba pre development/admin-internal buildy) zobrazuje výsledky testov: jeden DB select, jeden RPC, stav auth (session áno/nie), bez vypisovania tokenov. V development je stránka dostupná vždy na `/diagnostics`.
 
 ---
 
@@ -79,4 +79,4 @@ Ak diagnostika hlási „Could not find the table 'public.businesses'“ alebo �
    - Nastav **VITE_SUPABASE_PUBLISHABLE_KEY** = hodnota **anon public** z Supabase projektu **eudwjgdijylsgcnncxeg** (Supabase Dashboard → ten projekt → Settings → API).
    - Ulož, potom **Deployments** → posledný deployment → **Redeploy**.
 3. **Riešenie 2 – spusti migrácie na projekte, ktorý už používaš (napr. dssdiqojkktzfuwoulbq):** Pozri [MIGRATIONS-TERMINAL.md](MIGRATIONS-TERMINAL.md) (CLI alebo psql) alebo [MIGRATIONS-SQL-EDITOR.md](MIGRATIONS-SQL-EDITOR.md) (SQL Editor – skopíruj `supabase/migrations/run-all.sql`).
-4. **Overenie:** Otvor `/diagnostics?key=diagnostics` – DB a RPC by mali byť OK. Potom `/booking` – služby sa zobrazia.
+4. **Overenie:** Otvor `/diagnostics` – DB a RPC by mali byť OK. Potom `/booking` – služby sa zobrazia.
