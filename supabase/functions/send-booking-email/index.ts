@@ -122,24 +122,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseAuth = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
-    if (userError || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const token = authHeader.replace("Bearer ", "").trim();
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isServiceRoleInvocation = token.length > 0 && token === serviceRoleKey;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    let callerProfileId: string | null = null;
+
+    if (!isServiceRoleInvocation) {
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+      if (userError || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      callerProfileId = userData.user.id;
+    }
 
     const { appointment_id, business_id, event_type } = await req.json();
     const reservationEvent = (event_type || "reservation.created") as ReservationEvent;
@@ -151,19 +161,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (!isServiceRoleInvocation) {
+      const { data: callerMembership } = await supabase
+        .from("memberships")
+        .select("role")
+        .eq("business_id", business_id)
+        .eq("profile_id", callerProfileId)
+        .maybeSingle();
 
-    const { data: callerMembership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("business_id", business_id)
-      .eq("profile_id", userData.user.id)
-      .maybeSingle();
-
-    if (!callerMembership || !["owner", "admin", "employee"].includes(callerMembership.role)) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (!callerMembership || !["owner", "admin", "employee"].includes(callerMembership.role)) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     if (!(reservationEvent in EVENT_META)) {

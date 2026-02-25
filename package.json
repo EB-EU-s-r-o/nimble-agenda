@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "test:responsive": "playwright test --config=e2e/playwright.config.ts",
     "test:responsive:preview": "npm run build && playwright test --config=e2e/playwright.config.preview.ts",
-    "test:edge-security": "node scripts/edge-security-check.mjs"
+    "test:edge-security": "node scripts/edge-security-check.mjs",
+    "test:send-email-smoke": "node scripts/send-email-trigger-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
