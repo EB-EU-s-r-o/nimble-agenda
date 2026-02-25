@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,12 +9,27 @@ const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
 
+type ProviderStatus = {
+  status: TestStatus;
+  error: string | null;
+  urlHost: string | null;
+};
+
 const stripBom = (value: string | undefined) => (value ?? "").replace(/^\uFEFF/, "").trim();
 
 const extractProjectRefFromHost = (host: string | null) => {
   if (!host) return null;
   const [prefix] = host.split(".");
   return prefix || null;
+};
+
+const readHost = (url: string | null) => {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
 };
 
 export default function DiagnosticsPage() {
@@ -37,6 +52,9 @@ export default function DiagnosticsPage() {
   const [authStatus, setAuthStatus] = useState<TestStatus>("idle");
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const [googleProvider, setGoogleProvider] = useState<ProviderStatus>({ status: "idle", error: null, urlHost: null });
+  const [githubProvider, setGithubProvider] = useState<ProviderStatus>({ status: "idle", error: null, urlHost: null });
 
   const allowed = import.meta.env.DEV === true || searchParams.get("key") === DIAGNOSTICS_KEY;
 
@@ -158,6 +176,34 @@ export default function DiagnosticsPage() {
     run();
   }, [allowed]);
 
+  useEffect(() => {
+    if (!allowed) return;
+
+    const testProvider = async (
+      provider: "google" | "github",
+      setter: Dispatch<SetStateAction<ProviderStatus>>,
+    ) => {
+      setter({ status: "loading", error: null, urlHost: null });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/admin`,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        setter({ status: "error", error: error.message ?? "OAuth chyba", urlHost: null });
+        return;
+      }
+
+      setter({ status: "ok", error: null, urlHost: readHost(data?.url ?? null) });
+    };
+
+    testProvider("google", setGoogleProvider);
+    testProvider("github", setGithubProvider);
+  }, [allowed]);
+
   if (!allowed) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -168,6 +214,16 @@ export default function DiagnosticsPage() {
 
   const hasHostMismatch = Boolean(expectedProjectRef && hostProjectRef && hostProjectRef !== expectedProjectRef);
   const expectedUrl = expectedProjectRef ? `https://${expectedProjectRef}.supabase.co` : null;
+
+  const hasAnyIssue =
+    dbStatus === "error" ||
+    servicesStatus === "error" ||
+    rpcStatus === "error" ||
+    googleProvider.status === "error" ||
+    githubProvider.status === "error" ||
+    hasHostMismatch ||
+    !urlSet ||
+    !publishableKeySet;
 
   return (
     <div className="min-h-screen p-4 md:p-6 max-w-2xl mx-auto">
@@ -182,13 +238,8 @@ export default function DiagnosticsPage() {
             <p className="text-sm text-muted-foreground">VITE_SUPABASE_URL: {urlSet === null ? "—" : urlSet ? "Áno" : "Nie"}</p>
             <p className="text-sm text-muted-foreground">VITE_SUPABASE_PUBLISHABLE_KEY: {publishableKeySet === null ? "—" : publishableKeySet ? "Áno" : "Nie"}</p>
 
-            {supabaseUrlHost && (
-              <p className="text-sm font-mono break-all">Aktuálny host: {supabaseUrlHost}</p>
-            )}
-
-            {expectedProjectRef && (
-              <p className="text-sm text-muted-foreground">Očakávaný projekt: {expectedProjectRef}</p>
-            )}
+            {supabaseUrlHost && <p className="text-sm font-mono break-all">Aktuálny host: {supabaseUrlHost}</p>}
+            {expectedProjectRef && <p className="text-sm text-muted-foreground">Očakávaný projekt: {expectedProjectRef}</p>}
 
             {hasHostMismatch && (
               <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
@@ -225,10 +276,28 @@ export default function DiagnosticsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" /> Načítavam…
               </span>
             )}
-            {servicesStatus === "ok" && (
-              <p className="text-sm text-green-600 dark:text-green-400">OK (aktívne služby: {activeServicesCount ?? 0})</p>
-            )}
+            {servicesStatus === "ok" && <p className="text-sm text-green-600 dark:text-green-400">OK (aktívne služby: {activeServicesCount ?? 0})</p>}
             {servicesStatus === "error" && <p className="text-sm text-destructive">Chyba: {servicesError ?? "neznáma"}</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">OAuth provideri</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div>
+              <p className="font-medium">Google</p>
+              {googleProvider.status === "loading" && <p className="text-muted-foreground inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Testujem…</p>}
+              {googleProvider.status === "ok" && <p className="text-green-600 dark:text-green-400">OK{googleProvider.urlHost ? ` (redirect host: ${googleProvider.urlHost})` : ""}</p>}
+              {googleProvider.status === "error" && <p className="text-destructive">Chyba: {googleProvider.error ?? "neznáma"}</p>}
+            </div>
+            <div>
+              <p className="font-medium">GitHub</p>
+              {githubProvider.status === "loading" && <p className="text-muted-foreground inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Testujem…</p>}
+              {githubProvider.status === "ok" && <p className="text-green-600 dark:text-green-400">OK{githubProvider.urlHost ? ` (redirect host: ${githubProvider.urlHost})` : ""}</p>}
+              {githubProvider.status === "error" && <p className="text-destructive">Chyba: {githubProvider.error ?? "neznáma"}</p>}
+            </div>
           </CardContent>
         </Card>
 
@@ -264,20 +333,29 @@ export default function DiagnosticsPage() {
           </CardContent>
         </Card>
 
-        {(dbStatus === "error" || servicesStatus === "error" || rpcStatus === "error" || hasHostMismatch || !urlSet || !publishableKeySet) && (
+        {hasAnyIssue && (
           <Card className="border-amber-500/50 bg-amber-500/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Rýchly postup</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>Ak je niečo červené vyššie, najčastejšie ide o env premenné alebo migrácie na inom projekte.</p>
+              <p>Ak je niečo červené vyššie, najčastejšie ide o env premenné, vypnutého OAuth providera alebo migrácie na inom projekte.</p>
               <p className="font-medium text-foreground">Možnosť 1 (odporúčané):</p>
               <p>
                 Vercel → Settings → Environment Variables. Nastav <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code>
                 {expectedUrl ? <span> = <code className="rounded bg-muted px-1">{expectedUrl}</code></span> : null}
-                {expectedProjectRef ? <span> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z projektu <code className="rounded bg-muted px-1">{expectedProjectRef}</code>.</span> : <span> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z toho istého projektu.</span>}
+                {expectedProjectRef ? (
+                  <span> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z projektu <code className="rounded bg-muted px-1">{expectedProjectRef}</code>.</span>
+                ) : (
+                  <span> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z toho istého projektu.</span>
+                )}
               </p>
-              <p className="font-medium text-foreground">Možnosť 2:</p>
+              <p className="font-medium text-foreground">Možnosť 2 (OAuth):</p>
+              <p>
+                Supabase Dashboard → Authentication → Providers. Zapni Google/GitHub, vyplň Client ID + Secret a do providera pridaj callback URL podľa Supabase.
+                Následne skontroluj v Authentication → URL Configuration, že <code className="rounded bg-muted px-1">Site URL</code> a redirect URL obsahujú tvoju doménu + <code className="rounded bg-muted px-1">/admin</code>.
+              </p>
+              <p className="font-medium text-foreground">Možnosť 3:</p>
               <p>
                 Spusti migrácie na aktuálny projekt: SQL Editor v Supabase Dashboard (obsah <code className="rounded bg-muted px-1">supabase/migrations/run-all.sql</code>)
                 alebo skript <code className="rounded bg-muted px-1">./supabase-db-push-psql.ps1 -ProjectRef &lt;tvoj-project-ref&gt;</code>.
