@@ -34,7 +34,7 @@ interface ServiceRow {
   duration_minutes: number;
   buffer_minutes: number;
   is_active: boolean;
-  business_id: string;
+  business_id?: string;
   category: string | null;
   subcategory: string | null;
 }
@@ -45,8 +45,9 @@ interface EmployeeRow {
   email: string | null;
   phone: string | null;
   is_active: boolean;
-  business_id: string;
+  business_id?: string;
   photo_url: string | null;
+  has_schedule?: boolean;
 }
 
 interface BookingResult {
@@ -66,7 +67,6 @@ export default function BookingPage() {
   const [businessHourEntries, setBusinessHourEntries] = useState<BusinessHourEntry[]>([]);
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
-  const [employeeServiceMap, setEmployeeServiceMap] = useState<Record<string, string[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
 
   // Booking states
@@ -96,7 +96,7 @@ export default function BookingPage() {
       const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
         supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
         supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-        supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+        (supabase as any).rpc("get_bookable_service_providers", { p_business_id: DEMO_BUSINESS_ID, p_service_id: null }),
         supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
         supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
       ]);
@@ -110,7 +110,7 @@ export default function BookingPage() {
         override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
       })));
 
-      const empIds = (empRes.data ?? []).map((e: Tables<"employees">) => e.id);
+      const empIds = (empRes.data ?? []).map((e: EmployeeRow) => e.id);
       if (empIds.length) {
         const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
         const map: Record<string, EmployeeSchedule[]> = {};
@@ -120,14 +120,6 @@ export default function BookingPage() {
         });
         setSchedules(map);
       }
-
-      const { data: esMap } = await (supabase as any).from("employee_services").select("employee_id, service_id");
-      const eMap: Record<string, string[]> = {};
-      (esMap ?? []).forEach((item: any) => {
-        if (!eMap[item.employee_id]) eMap[item.employee_id] = [];
-        eMap[item.employee_id].push(item.service_id);
-      });
-      setEmployeeServiceMap(eMap);
 
       setInitialLoading(false);
     };
@@ -150,17 +142,30 @@ export default function BookingPage() {
 
   const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
 
-  // Filter employees based on selected service
-  const filteredEmployees = useMemo(() => {
-    if (!selectedServiceId) return employees;
-    return employees.filter(emp => {
-      // If we have no mapping for this employee, assume they do all services (fallback)
-      if (!employeeServiceMap[emp.id]) return true;
-      return employeeServiceMap[emp.id].includes(selectedServiceId);
-    });
-  }, [employees, selectedServiceId, employeeServiceMap]);
+  useEffect(() => {
+    const loadProviders = async () => {
+      const { data } = await (supabase as any).rpc("get_bookable_service_providers", {
+        p_business_id: DEMO_BUSINESS_ID,
+        p_service_id: selectedServiceId,
+      });
+
+      setEmployees((data ?? []) as EmployeeRow[]);
+    };
+
+    loadProviders();
+  }, [selectedServiceId]);
+
+  const filteredEmployees = employees;
 
   const selectedEmployee = employees.find((e) => e.id === selectedWorkerId) ?? null;
+  useEffect(() => {
+    if (selectedWorkerId && !employees.some((e) => e.id === selectedWorkerId)) {
+      setSelectedWorkerId(null);
+      setSelectedDate(null);
+      setSelectedTime(null);
+    }
+  }, [employees, selectedWorkerId]);
+
 
   // Calendar helpers
   const today = startOfDay(new Date());
@@ -478,11 +483,16 @@ export default function BookingPage() {
           <div className="animate-fade-in">
             <StepHeader num="3" title="Vyberte pracovníka" />
             <div className="flex flex-col gap-4">
-              {filteredEmployees.map((w) => (
+              {filteredEmployees.length === 0 && (
+                <p className="text-sm text-muted-foreground">Pre vybranú službu momentálne nie je dostupný žiadny pracovník.</p>
+              )}
+              {filteredEmployees.map((w) => {
+                const disabled = w.has_schedule === false;
+                return (
                 <div
                   key={w.id}
-                  onClick={() => { setSelectedWorkerId(w.id); setSelectedDate(null); setSelectedTime(null); }}
-                  className={`border rounded-[2rem] p-2 flex items-center gap-4 cursor-pointer transition-all duration-200 ${selectedWorkerId === w.id
+                  onClick={() => { if (!disabled) { setSelectedWorkerId(w.id); setSelectedDate(null); setSelectedTime(null); } }}
+                  className={`border rounded-[2rem] p-2 flex items-center gap-4 transition-all duration-200 ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${selectedWorkerId === w.id
                     ? "border-primary bg-card"
                     : "border-border bg-card"
                     }`}
@@ -497,11 +507,14 @@ export default function BookingPage() {
                       />
                     </div>
                     <div className="w-2/3 flex items-center justify-center bg-background dark:bg-card">
-                      <span className="font-bold text-lg tracking-wide text-primary">{w.display_name}</span>
+                      <div className="text-center">
+                        <span className="font-bold text-lg tracking-wide text-primary block">{w.display_name}</span>
+                        {disabled && <span className="text-xs text-muted-foreground">Bez pracovného času</span>}
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         )}
