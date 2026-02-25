@@ -8,10 +8,12 @@ import { sk } from "date-fns/locale";
 import { z } from "zod";
 import { useTheme } from "next-themes";
 import { User, Mail, Phone, PenLine, ChevronLeft, ChevronRight, Star, Check, Moon, Sun, Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import miskaImg from "@/assets/employee-miska.jpeg";
 import matoImg from "@/assets/employee-mato.jpg";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Map employee IDs to local photos
 const EMPLOYEE_PHOTOS: Record<string, string> = {
@@ -66,6 +68,11 @@ interface BookingResult {
 
 export default function BookingPage() {
   const { theme, setTheme } = useTheme();
+  const [searchParams] = useSearchParams();
+  const businessId = useMemo(() => {
+    const fromQuery = searchParams.get("business_id")?.trim() ?? "";
+    return UUID_RE.test(fromQuery) ? fromQuery : DEMO_BUSINESS_ID;
+  }, [searchParams]);
   const isDark = theme === "dark";
 
   // Data states
@@ -102,11 +109,11 @@ export default function BookingPage() {
   useEffect(() => {
     const load = async () => {
       const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
-        supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
-        supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-        (supabase as any).rpc("get_bookable_service_providers", { p_business_id: DEMO_BUSINESS_ID, p_service_id: null }),
-        supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
-        supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
+        supabase.from("businesses").select("*").eq("id", businessId).maybeSingle(),
+        supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).order("name_sk"),
+        (supabase as any).rpc("get_bookable_service_providers", { p_business_id: businessId, p_service_id: null }),
+        supabase.from("business_hours").select("*").eq("business_id", businessId).order("sort_order"),
+        supabase.from("business_date_overrides").select("*").eq("business_id", businessId).gte("override_date", new Date().toISOString().slice(0, 10)),
       ]);
       setBusiness(bizRes.data);
       setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
@@ -132,7 +139,7 @@ export default function BookingPage() {
       setInitialLoading(false);
     };
     load();
-  }, []);
+  }, [businessId]);
 
   // Derived: grouped subcategories
   const subcategories = useMemo(() => {
@@ -153,7 +160,7 @@ export default function BookingPage() {
   useEffect(() => {
     const loadProviders = async () => {
       const { data } = await (supabase as any).rpc("get_bookable_service_providers", {
-        p_business_id: DEMO_BUSINESS_ID,
+        p_business_id: businessId,
         p_service_id: selectedServiceId,
       });
 
@@ -161,7 +168,7 @@ export default function BookingPage() {
     };
 
     loadProviders();
-  }, [selectedServiceId]);
+  }, [selectedServiceId, businessId]);
 
   const filteredEmployees = employees;
 
@@ -296,7 +303,7 @@ export default function BookingPage() {
           "x-idempotency-key": idempotencyKey,
         },
         body: {
-          business_id: DEMO_BUSINESS_ID,
+          business_id: businessId,
           service_id: selectedServiceId,
           employee_id: selectedWorkerId,
           start_at: slotDate.toISOString(),
