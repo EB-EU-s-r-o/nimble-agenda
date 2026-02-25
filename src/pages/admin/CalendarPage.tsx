@@ -85,7 +85,7 @@ export default function CalendarPage() {
     loadEvents();
     supabase.from("businesses").select("*").eq("id", businessId).maybeSingle().then(({ data }) => { if (data) setBusiness(data); });
     supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => { if (data) setServices(data); });
-    supabase.from("employees").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => {
+    (supabase as any).rpc("get_bookable_service_providers", { p_business_id: businessId, p_service_id: null }).then(({ data }: any) => {
       if (data) {
         setEmployees(data);
         const ids = data.map((e: any) => e.id);
@@ -102,6 +102,23 @@ export default function CalendarPage() {
       }
     });
   }, [businessId, loadEvents]);
+
+  useEffect(() => {
+    const loadBookableEmployees = async () => {
+      const { data } = await (supabase as any).rpc("get_bookable_service_providers", {
+        p_business_id: businessId,
+        p_service_id: bookForm.service_id || null,
+      });
+      const next = data ?? [];
+      setEmployees(next);
+      if (bookForm.employee_id && !next.some((e: any) => e.id === bookForm.employee_id)) {
+        setBookForm((f) => ({ ...f, employee_id: "", start_at: "" }));
+        setAvailableSlots([]);
+      }
+    };
+
+    loadBookableEmployees();
+  }, [businessId, bookForm.service_id]);
 
   const loadAvailableSlots = useCallback(async (slotDate: Date, employeeId: string, serviceId: string) => {
     const service = services.find((s) => s.id === serviceId);

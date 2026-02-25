@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
-import { DateTime } from "luxon";
 import { sk } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/styles/big-calendar-overrides.css";
@@ -14,13 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, User, Clock, Phone, Check } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
-import { CalendarEventCard } from "@/components/calendar/CalendarEventCard";
-import {
-  DEFAULT_BUSINESS_TIMEZONE,
-  normalizeAppointmentEvent,
-  type NormalizedCalendarEvent,
-  type RawAppointmentEvent,
-} from "@/lib/calendarEventUtils";
+import { format as fmtDate } from "date-fns";
 
 const localizer = dateFnsLocalizer({
   format,
@@ -45,19 +38,27 @@ const STATUS_LABELS: Record<string, string> = {
   completed: "Dokončená",
 };
 
+interface CalEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  status: string;
+  resource: any;
+}
 
 export default function MySchedulePage() {
   const { businessId } = useBusiness();
   const { user } = useAuth();
-  const [events, setEvents] = useState<NormalizedCalendarEvent[]>([]);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [view, setView] = useState<View>("week");
   const [date, setDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
-  const [businessTimezone, setBusinessTimezone] = useState(DEFAULT_BUSINESS_TIMEZONE);
+  const [employeeActive, setEmployeeActive] = useState(true);
 
   const [detailModal, setDetailModal] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<NormalizedCalendarEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   // Find my employee record
@@ -65,26 +66,16 @@ export default function MySchedulePage() {
     if (!user) return;
     supabase
       .from("employees")
-      .select("id")
+      .select("id, is_active")
       .eq("business_id", businessId)
       .eq("profile_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         setEmployeeId(data?.id ?? null);
+        setEmployeeActive(data?.is_active ?? false);
       });
   }, [user, businessId]);
 
-
-  useEffect(() => {
-    supabase
-      .from("businesses")
-      .select("timezone")
-      .eq("id", businessId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.timezone) setBusinessTimezone(data.timezone);
-      });
-  }, [businessId]);
   const loadEvents = useCallback(async () => {
     if (!employeeId) return;
     setLoading(true);
@@ -96,17 +87,24 @@ export default function MySchedulePage() {
       .order("start_at");
     if (data) {
       setEvents(
-        data.map((a) => normalizeAppointmentEvent(a as RawAppointmentEvent, businessTimezone))
+        data.map((a) => ({
+          id: a.id,
+          title: `${a.customers?.full_name ?? "?"} – ${a.services?.name_sk ?? "?"}`,
+          start: new Date(a.start_at),
+          end: new Date(a.end_at),
+          status: a.status,
+          resource: a,
+        }))
       );
     }
     setLoading(false);
-  }, [businessId, employeeId, businessTimezone]);
+  }, [businessId, employeeId]);
 
   useEffect(() => {
     if (employeeId) loadEvents();
   }, [employeeId, loadEvents]);
 
-  const handleSelectEvent = (event: NormalizedCalendarEvent) => {
+  const handleSelectEvent = (event: CalEvent) => {
     setSelectedEvent(event);
     setDetailModal(true);
   };
@@ -137,6 +135,15 @@ export default function MySchedulePage() {
     );
   }
 
+  if (!employeeActive && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <p>Váš zamestnanecký účet je deaktivovaný.</p>
+        <p className="text-sm">Kontaktujte administrátora.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 h-full">
       <div className="flex items-center justify-between">
@@ -158,9 +165,7 @@ export default function MySchedulePage() {
           culture="sk"
           messages={SK_MESSAGES}
           onSelectEvent={handleSelectEvent}
-          eventPropGetter={(e: NormalizedCalendarEvent) => ({ className: `status-${e.status}` })}
-          components={{ event: ({ event }) => <CalendarEventCard event={event as NormalizedCalendarEvent} /> }}
-          dayLayoutAlgorithm="no-overlap"
+          eventPropGetter={(e: CalEvent) => ({ className: `status-${e.status}` })}
           step={30}
           timeslots={2}
           popup
@@ -197,8 +202,8 @@ export default function MySchedulePage() {
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span>
-                    {DateTime.fromJSDate(selectedEvent.start).setZone(selectedEvent.timezone).toFormat("d. M. yyyy HH:mm")} –{" "}
-                    {DateTime.fromJSDate(selectedEvent.end).setZone(selectedEvent.timezone).toFormat("HH:mm")}
+                    {fmtDate(selectedEvent.start, "d. M. yyyy HH:mm")} –{" "}
+                    {fmtDate(selectedEvent.end, "HH:mm")}
                   </span>
                 </div>
               </div>
