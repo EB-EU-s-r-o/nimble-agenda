@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import "@/styles/liquid-cookie.css";
 
 interface CookiePrefs {
@@ -10,6 +11,9 @@ interface CookiePrefs {
 }
 
 const STORAGE_KEY = "cookie_prefs_v1";
+const CONSENT_SUBJECT_KEY = "consent_subject_id_v1";
+
+type ConsentAction = "accept" | "reject" | "update";
 
 function loadPrefs(): CookiePrefs | null {
   try {
@@ -25,6 +29,40 @@ function loadPrefs(): CookiePrefs | null {
 
 function savePrefs(prefs: Omit<CookiePrefs, "timestamp">) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prefs, timestamp: new Date().toISOString() }));
+}
+
+function getConsentSubjectId() {
+  const existing = localStorage.getItem(CONSENT_SUBJECT_KEY);
+  if (existing) return existing;
+  const next = crypto.randomUUID();
+  localStorage.setItem(CONSENT_SUBJECT_KEY, next);
+  return next;
+}
+
+async function trackConsentEvent(prefs: Omit<CookiePrefs, "timestamp">, action: ConsentAction) {
+  const categories = [
+    "necessary",
+    ...(prefs.analytics ? ["analytics"] : []),
+    ...(prefs.marketing ? ["marketing"] : []),
+  ];
+
+  try {
+    await supabase.functions.invoke("consent-event", {
+      body: {
+        subject_type: "session",
+        subject_id: getConsentSubjectId(),
+        action,
+        categories,
+        source: "web",
+        metadata: {
+          consent_version: 1,
+          origin: window.location.origin,
+        },
+      },
+    });
+  } catch (error) {
+    console.warn("Consent event tracking failed", error);
+  }
 }
 
 export default function CookieConsent() {
@@ -46,12 +84,16 @@ export default function CookieConsent() {
   }, [customize]);
 
   const acceptAll = useCallback(() => {
-    savePrefs({ necessary: true, analytics: true, marketing: true });
+    const prefs = { necessary: true as const, analytics: true, marketing: true };
+    savePrefs(prefs);
+    void trackConsentEvent(prefs, "accept");
     setVisible(false);
   }, []);
 
   const rejectAll = useCallback(() => {
-    savePrefs({ necessary: true, analytics: false, marketing: false });
+    const prefs = { necessary: true as const, analytics: false, marketing: false };
+    savePrefs(prefs);
+    void trackConsentEvent(prefs, "reject");
     setVisible(false);
   }, []);
 
@@ -62,7 +104,9 @@ export default function CookieConsent() {
   }, []);
 
   const saveCustom = useCallback(() => {
-    savePrefs({ necessary: true, analytics, marketing });
+    const prefs = { necessary: true as const, analytics, marketing };
+    savePrefs(prefs);
+    void trackConsentEvent(prefs, "update");
     setVisible(false);
   }, [analytics, marketing]);
 

@@ -68,3 +68,20 @@
 .rbc-show-more { color: hsl(var(--gold)); font-size: 0.75rem; font-weight: 500; }
 .rbc-time-gutter .rbc-timeslot-group { min-height: 50px; }
 .rbc-slot-selection { background-color: hsl(var(--gold) / 0.15) !important; }
+
+/* Admin/internal calendar event styles */
+.rbc-event.admin-private_note,
+.rbc-event.admin-admin_booking_note {
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+
+.rbc-event.admin-blocked_time {
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+}
+
+.rbc-event.admin-internal_event {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}

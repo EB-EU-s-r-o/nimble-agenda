@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
 import { z } from "zod";
+import { sortServicesByCanonicalOrder } from "@/lib/priceListOrder";
 
 const serviceSchema = z.object({
   name_sk: z.string().min(2, "Názov musí mať aspoň 2 znaky"),
@@ -34,8 +35,8 @@ export default function ServicesPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("services").select("*").eq("business_id", businessId).order("name_sk");
-    setServices(data ?? []);
+    const { data } = await supabase.from("services").select("*").eq("business_id", businessId);
+    setServices(sortServicesByCanonicalOrder(data ?? []));
     setLoading(false);
   };
 
