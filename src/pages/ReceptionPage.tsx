@@ -89,14 +89,15 @@ export default function ReceptionPage() {
 
   // Load employees + services from Supabase (will use cached if offline)
   useEffect(() => {
-    supabase
-      .from("employees")
-      .select("id, display_name")
-      .eq("business_id", businessId)
-      .eq("is_active", true)
-      .then(({ data }) => {
+    (supabase as any)
+      .rpc("get_bookable_service_providers", {
+        p_business_id: businessId,
+        p_service_id: addForm.service_id || null,
+      })
+      .then(({ data }: any) => {
         if (data) setEmployees(data);
       });
+
     supabase
       .from("services")
       .select("id, name_sk, duration_minutes")
@@ -105,7 +106,7 @@ export default function ReceptionPage() {
       .then(({ data }) => {
         if (data) setServices(data);
       });
-  }, [businessId]);
+  }, [businessId, addForm.service_id]);
 
   // Initial sync on mount
   useEffect(() => {

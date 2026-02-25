@@ -99,12 +99,10 @@ export default function MobileCalendarShell() {
         .eq("business_id", DEMO_BUSINESS_ID)
         .eq("is_active", true)
         .order("name_sk"),
-      supabase
-        .from("employees")
-        .select("id, display_name, is_active, created_at")
-        .eq("business_id", DEMO_BUSINESS_ID)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true }),
+      (supabase as any).rpc("get_bookable_service_providers", {
+        p_business_id: DEMO_BUSINESS_ID,
+        p_service_id: null,
+      }),
       supabase
         .from("business_hours")
         .select("day_of_week, mode, start_time, end_time")
@@ -116,7 +114,7 @@ export default function MobileCalendarShell() {
     if (empRes.error) throw empRes.error;
     if (bhRes.error) throw bhRes.error;
 
-    const mappedEmployees: Employee[] = (empRes.data ?? []).map((employee, index) => ({
+    const mappedEmployees: Employee[] = ((empRes.data ?? []) as any[]).map((employee, index) => ({
       id: employee.id,
       name: employee.display_name,
       color: EMPLOYEE_COLOR_ORDER[index % EMPLOYEE_COLOR_ORDER.length],

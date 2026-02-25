@@ -177,6 +177,29 @@ serve(async (req) => {
       );
     }
 
+    // 2b. Admin bookability is controlled by business setting
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("role")
+      .eq("business_id", business_id)
+      .eq("profile_id", employee.profile_id)
+      .maybeSingle();
+
+    if (membership?.role === "admin") {
+      const { data: biz } = await supabase
+        .from("businesses")
+        .select("allow_admin_in_service_selection")
+        .eq("id", business_id)
+        .single();
+
+      if (!biz?.allow_admin_in_service_selection) {
+        return new Response(
+          JSON.stringify({ error: "Administrátora nie je možné rezervovať pre služby (nastavenie je vypnuté)." }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // 3. Calculate end time
     const startDate = new Date(start_at);
     const totalMinutes = service.duration_minutes + (service.buffer_minutes ?? 0);
