@@ -19,8 +19,7 @@ export default function DiagnosticsPage() {
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const allowed =
-    import.meta.env.DEV === true;
+  const allowed = import.meta.env.DEV === true;
 
   useEffect(() => {
     const raw = import.meta.env.VITE_SUPABASE_URL;

@@ -8,25 +8,16 @@ import { sk } from "date-fns/locale";
 import { z } from "zod";
 import { useTheme } from "next-themes";
 import { User, Mail, Phone, PenLine, ChevronLeft, ChevronRight, Star, Check, Moon, Sun, Loader2 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
 import miskaImg from "@/assets/employee-miska.jpeg";
 import matoImg from "@/assets/employee-mato.jpg";
+import { resolveBookingTenantHint } from "@/lib/tenantResolver";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Map employee IDs to local photos
 const EMPLOYEE_PHOTOS: Record<string, string> = {
   "c1000000-0000-0000-0000-000000000001": miskaImg,
   "c1000000-0000-0000-0000-000000000002": matoImg,
-};
-
-
-const makeIdempotencyKey = () => {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `booking-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
 const contactSchema = z.object({
@@ -68,11 +59,6 @@ interface BookingResult {
 
 export default function BookingPage() {
   const { theme, setTheme } = useTheme();
-  const [searchParams] = useSearchParams();
-  const businessId = useMemo(() => {
-    const fromQuery = searchParams.get("business_id")?.trim() ?? "";
-    return UUID_RE.test(fromQuery) ? fromQuery : DEMO_BUSINESS_ID;
-  }, [searchParams]);
   const isDark = theme === "dark";
 
   // Data states
@@ -83,6 +69,8 @@ export default function BookingPage() {
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
+  const [tenantNotFound, setTenantNotFound] = useState(false);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
 
   // Booking states
   const [category, setCategory] = useState<"damske" | "panske">("damske");
@@ -108,38 +96,69 @@ export default function BookingPage() {
   // Load initial data
   useEffect(() => {
     const load = async () => {
-      const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
-        supabase.from("businesses").select("*").eq("id", businessId).maybeSingle(),
-        supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).order("name_sk"),
-        (supabase as any).rpc("get_bookable_service_providers", { p_business_id: businessId, p_service_id: null }),
-        supabase.from("business_hours").select("*").eq("business_id", businessId).order("sort_order"),
-        supabase.from("business_date_overrides").select("*").eq("business_id", businessId).gte("override_date", new Date().toISOString().slice(0, 10)),
-      ]);
-      setBusiness(bizRes.data);
-      setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
-      setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
-      setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
-        day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
-      })));
-      setDateOverrides((bdoRes.data ?? []).map((o: Tables<"business_date_overrides">) => ({
-        override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
-      })));
+      setInitialLoading(true);
+      setTenantNotFound(false);
+      setLoadingError(null);
 
-      const empIds = (empRes.data ?? []).map((e: EmployeeRow) => e.id);
-      if (empIds.length) {
-        const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
-        const map: Record<string, EmployeeSchedule[]> = {};
-        (scheds ?? []).forEach((s: Tables<"schedules">) => {
-          if (!map[s.employee_id]) map[s.employee_id] = [];
-          map[s.employee_id].push(s);
-        });
-        setSchedules(map);
+      const { slug, devBusinessId } = resolveBookingTenantHint(new URL(window.location.href));
+
+      try {
+        let bizRes;
+        if (slug) {
+          bizRes = await supabase.from("businesses").select("*").eq("slug", slug).maybeSingle();
+        } else if (import.meta.env.DEV && devBusinessId) {
+          // DEV-only fallback for local testing when host/slug tenant resolution is unavailable.
+          bizRes = await supabase.from("businesses").select("*").eq("id", devBusinessId).maybeSingle();
+        } else if (import.meta.env.DEV) {
+          // DEV-only fallback to keep local booking smoke-tests convenient.
+          bizRes = await supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle();
+        } else {
+          setTenantNotFound(true);
+          setInitialLoading(false);
+          return;
+        }
+
+        if (bizRes.error || !bizRes.data) {
+          setTenantNotFound(true);
+          setInitialLoading(false);
+          return;
+        }
+
+        const businessId = bizRes.data.id;
+        const [svcRes, empRes, bhRes, bdoRes] = await Promise.all([
+          supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).order("name_sk"),
+          (supabase as any).rpc("get_bookable_service_providers", { p_business_id: businessId, p_service_id: null }),
+          supabase.from("business_hours").select("*").eq("business_id", businessId).order("sort_order"),
+          supabase.from("business_date_overrides").select("*").eq("business_id", businessId).gte("override_date", new Date().toISOString().slice(0, 10)),
+        ]);
+
+        setBusiness(bizRes.data);
+        setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
+        setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
+        setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
+          day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
+        })));
+        setDateOverrides((bdoRes.data ?? []).map((o: Tables<"business_date_overrides">) => ({
+          override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
+        })));
+
+        const empIds = (empRes.data ?? []).map((e: EmployeeRow) => e.id);
+        if (empIds.length) {
+          const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
+          const map: Record<string, EmployeeSchedule[]> = {};
+          (scheds ?? []).forEach((s: Tables<"schedules">) => {
+            if (!map[s.employee_id]) map[s.employee_id] = [];
+            map[s.employee_id].push(s);
+          });
+          setSchedules(map);
+        }
+      } catch {
+        setLoadingError("Nepodarilo sa načítať dostupné rezervácie. Skúste to znova neskôr.");
       }
-
       setInitialLoading(false);
     };
     load();
-  }, [businessId]);
+  }, []);
 
   // Derived: grouped subcategories
   const subcategories = useMemo(() => {
@@ -158,9 +177,14 @@ export default function BookingPage() {
   const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
 
   useEffect(() => {
+    if (!business?.id) {
+      setEmployees([]);
+      return;
+    }
+
     const loadProviders = async () => {
       const { data } = await (supabase as any).rpc("get_bookable_service_providers", {
-        p_business_id: businessId,
+        p_business_id: business.id,
         p_service_id: selectedServiceId,
       });
 
@@ -168,7 +192,7 @@ export default function BookingPage() {
     };
 
     loadProviders();
-  }, [selectedServiceId, businessId]);
+  }, [selectedServiceId, business?.id]);
 
   const filteredEmployees = employees;
 
@@ -274,6 +298,11 @@ export default function BookingPage() {
 
   // Submit booking
   const handleSubmit = async () => {
+    if (!business?.id) {
+      toast.error("Business not found");
+      return;
+    }
+
     const result = contactSchema.safeParse(formData);
     if (!result.success) {
       const errs: Record<string, string> = {};
@@ -297,20 +326,15 @@ export default function BookingPage() {
     }
 
     try {
-      const idempotencyKey = makeIdempotencyKey();
       const { data, error } = await supabase.functions.invoke("create-public-booking", {
-        headers: {
-          "x-idempotency-key": idempotencyKey,
-        },
         body: {
-          business_id: businessId,
+          business_id: business.id,
           service_id: selectedServiceId,
           employee_id: selectedWorkerId,
           start_at: slotDate.toISOString(),
           customer_name: `${formData.meno} ${formData.priezvisko}`.trim(),
           customer_email: formData.email,
           customer_phone: formData.phone || undefined,
-          idempotency_key: idempotencyKey,
         },
       });
 
@@ -357,6 +381,26 @@ export default function BookingPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (tenantNotFound) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="text-center space-y-3 max-w-sm">
+          <h1 className="text-3xl font-bold text-foreground">404</h1>
+          <p className="text-lg font-medium text-foreground">Business not found</p>
+          <p className="text-sm text-muted-foreground">Skontrolujte prosím URL adresu alebo kontaktujte prevádzku.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <p className="text-sm text-muted-foreground text-center">{loadingError}</p>
       </div>
     );
   }
