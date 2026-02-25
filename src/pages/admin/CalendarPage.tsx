@@ -16,7 +16,6 @@ import { toast } from "sonner";
 import { Loader2, User, Clock, Phone, X, Check } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
 import { format as fmtDate } from "date-fns";
-import { filterAssignableProviders } from "@/lib/providerSelection";
 
 const localizer = dateFnsLocalizer({
   format,
@@ -84,30 +83,10 @@ export default function CalendarPage() {
     loadEvents();
     supabase.from("businesses").select("*").eq("id", businessId).maybeSingle().then(({ data }) => { if (data) setBusiness(data); });
     supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => { if (data) setServices(data); });
-    supabase.from("employees").select("*").eq("business_id", businessId).eq("is_active", true).then(async ({ data }) => {
+    (supabase as any).rpc("get_bookable_service_providers", { p_business_id: businessId, p_service_id: null }).then(({ data }: any) => {
       if (data) {
-        const { data: bizData } = await supabase
-          .from("businesses")
-          .select("allow_admin_providers")
-          .eq("id", businessId)
-          .maybeSingle();
-
-        const selectableEmployees = await filterAssignableProviders({
-          businessId,
-          allowAdminProviders: (bizData as any)?.allow_admin_providers ?? true,
-          providers: data,
-          fetchAdminProfileIds: async (targetBusinessId) => {
-            const { data: memberships } = await supabase
-              .from("memberships")
-              .select("profile_id")
-              .eq("business_id", targetBusinessId)
-              .in("role", ["owner", "admin"]);
-            return (memberships ?? []).map((m: any) => m.profile_id).filter(Boolean);
-          },
-        });
-
-        setEmployees(selectableEmployees);
-        const ids = selectableEmployees.map((e: any) => e.id);
+        setEmployees(data);
+        const ids = data.map((e: any) => e.id);
         if (ids.length) {
           supabase.from("schedules").select("*").in("employee_id", ids).then(({ data: scheds }) => {
             const map: Record<string, EmployeeSchedule[]> = {};
@@ -121,6 +100,23 @@ export default function CalendarPage() {
       }
     });
   }, [businessId, loadEvents]);
+
+  useEffect(() => {
+    const loadBookableEmployees = async () => {
+      const { data } = await (supabase as any).rpc("get_bookable_service_providers", {
+        p_business_id: businessId,
+        p_service_id: bookForm.service_id || null,
+      });
+      const next = data ?? [];
+      setEmployees(next);
+      if (bookForm.employee_id && !next.some((e: any) => e.id === bookForm.employee_id)) {
+        setBookForm((f) => ({ ...f, employee_id: "", start_at: "" }));
+        setAvailableSlots([]);
+      }
+    };
+
+    loadBookableEmployees();
+  }, [businessId, bookForm.service_id]);
 
   const loadAvailableSlots = useCallback(async (slotDate: Date, employeeId: string, serviceId: string) => {
     const service = services.find((s) => s.id === serviceId);

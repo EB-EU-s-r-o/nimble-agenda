@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/hooks/useBusiness";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   Plus,
@@ -40,7 +41,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { format, addDays, subDays } from "date-fns";
-import { filterAssignableProviders } from "@/lib/providerSelection";
 import { sk } from "date-fns/locale";
 
 function dayISO(d = new Date()) {
@@ -62,13 +62,15 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function ReceptionPage() {
-  const { businessId } = useBusiness();
+  const { businessId, isEmployee } = useBusiness();
+  const { user } = useAuth();
   const [day, setDay] = useState(dayISO());
   const [items, setItems] = useState<OfflineAppointment[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showConflicts, setShowConflicts] = useState(false);
+  const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
   const [addForm, setAddForm] = useState({
     customer_name: "",
     customer_phone: "",
@@ -78,11 +80,33 @@ export default function ReceptionPage() {
     duration: 30,
   });
 
+  useEffect(() => {
+    if (!isEmployee || !user) {
+      setMyEmployeeId(null);
+      return;
+    }
+
+    supabase
+      .from("employees")
+      .select("id, is_active")
+      .eq("business_id", businessId)
+      .eq("profile_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data?.id || data.is_active === false) {
+          setMyEmployeeId(null);
+          return;
+        }
+        setMyEmployeeId(data.id);
+      });
+  }, [businessId, isEmployee, user]);
+
   const load = useCallback(async () => {
     const appts = await listLocalAppointmentsForDay(day);
     appts.sort((a, b) => a.start_at.localeCompare(b.start_at));
-    setItems(appts);
-  }, [day]);
+    const scoped = isEmployee && myEmployeeId ? appts.filter((a) => a.employee_id === myEmployeeId) : appts;
+    setItems(scoped);
+  }, [day, isEmployee, myEmployeeId]);
 
   useEffect(() => {
     load();
@@ -92,33 +116,17 @@ export default function ReceptionPage() {
   useEffect(() => {
     supabase
       .from("employees")
-      .select("id, display_name, profile_id")
+      .select("id, display_name")
       .eq("business_id", businessId)
       .eq("is_active", true)
-      .then(async ({ data }) => {
+      .then(({ data }) => {
         if (!data) return;
-
-        const { data: bizData } = await supabase
-          .from("businesses")
-          .select("allow_admin_providers")
-          .eq("id", businessId)
-          .maybeSingle();
-
-        const selectableEmployees = await filterAssignableProviders({
-          businessId,
-          allowAdminProviders: (bizData as any)?.allow_admin_providers ?? true,
-          providers: data,
-          fetchAdminProfileIds: async (targetBusinessId) => {
-            const { data: memberships } = await supabase
-              .from("memberships")
-              .select("profile_id")
-              .eq("business_id", targetBusinessId)
-              .in("role", ["owner", "admin"]);
-            return (memberships ?? []).map((m: any) => m.profile_id).filter(Boolean);
-          },
-        });
-
-        setEmployees(selectableEmployees);
+        if (isEmployee && myEmployeeId) {
+          setEmployees(data.filter((e) => e.id === myEmployeeId));
+          setAddForm((f) => ({ ...f, employee_id: myEmployeeId }));
+          return;
+        }
+        setEmployees(data);
       });
     supabase
       .from("services")
@@ -128,7 +136,7 @@ export default function ReceptionPage() {
       .then(({ data }) => {
         if (data) setServices(data);
       });
-  }, [businessId]);
+  }, [businessId, isEmployee, myEmployeeId]);
 
   // Initial sync on mount
   useEffect(() => {
@@ -166,7 +174,8 @@ export default function ReceptionPage() {
     const service = services.find((s) => s.id === addForm.service_id);
     const duration = service?.duration_minutes || addForm.duration;
     const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
-    const emp = employees.find((e) => e.id === addForm.employee_id);
+    const effectiveEmployeeId = isEmployee ? myEmployeeId ?? "" : addForm.employee_id;
+    const emp = employees.find((e) => e.id === effectiveEmployeeId);
 
     await createAppointmentOffline({
       id,
@@ -174,7 +183,7 @@ export default function ReceptionPage() {
       end_at: endDate.toISOString(),
       customer_name: addForm.customer_name,
       customer_phone: addForm.customer_phone || undefined,
-      employee_id: addForm.employee_id || undefined,
+      employee_id: effectiveEmployeeId || undefined,
       employee_name: emp?.display_name || undefined,
       service_id: addForm.service_id || undefined,
       service_name: service?.name_sk || undefined,
@@ -186,7 +195,7 @@ export default function ReceptionPage() {
     setAddForm({
       customer_name: "",
       customer_phone: "",
-      employee_id: "",
+      employee_id: isEmployee ? myEmployeeId ?? "" : "",
       service_id: "",
       start_time: "",
       duration: 30,
@@ -411,7 +420,7 @@ export default function ReceptionPage() {
                 </Select>
               </div>
             )}
-            {employees.length > 0 && (
+            {employees.length > 0 && !isEmployee && (
               <div>
                 <Label>Zamestnanec</Label>
                 <Select
@@ -431,6 +440,12 @@ export default function ReceptionPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+            {isEmployee && (
+              <div>
+                <Label>Zamestnanec</Label>
+                <Input value={employees[0]?.display_name ?? "Nepriradený zamestnanec"} disabled />
               </div>
             )}
             <Button className="w-full" onClick={handleAddAppointment}>

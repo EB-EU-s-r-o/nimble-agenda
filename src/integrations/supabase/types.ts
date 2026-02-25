@@ -253,7 +253,7 @@ export type Database = {
       businesses: {
         Row: {
           address: string | null
-          allow_admin_providers: boolean
+          allow_admin_in_service_selection: boolean
           cancellation_hours: number
           created_at: string
           email: string | null
@@ -272,7 +272,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-          allow_admin_providers?: boolean
+          allow_admin_in_service_selection?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null
@@ -291,7 +291,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
-          allow_admin_providers?: boolean
+          allow_admin_in_service_selection?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null
@@ -717,11 +717,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_bookable_service_providers: {
+        Args: { p_business_id: string; p_service_id?: string | null }
+        Returns: {
+          display_name: string
+          email: string | null
+          has_schedule: boolean
+          id: string
+          is_active: boolean
+          phone: string | null
+          photo_url: string | null
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       is_business_admin: {
         Args: { _business_id: string; _user_id: string }
         Returns: boolean
       }
       is_business_employee: {
+        Args: { _business_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_business_owner: {
         Args: { _business_id: string; _user_id: string }
         Returns: boolean
       }
@@ -736,6 +753,10 @@ export type Database = {
       rpc_next_opening: {
         Args: { _business_id: string; _ts?: string }
         Returns: Json
+      }
+      set_allow_admin_in_service_selection: {
+        Args: { p_business_id: string; p_value: boolean }
+        Returns: Database["public"]["Tables"]["businesses"]["Row"]
       }
     }
     Enums: {

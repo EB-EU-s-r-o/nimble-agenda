@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/hooks/useBusiness";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,11 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, Save, Mail } from "lucide-react";
 import { BusinessHoursEditor } from "@/components/admin/BusinessHoursEditor";
-import { Switch } from "@/components/ui/switch";
 
 export default function SettingsPage() {
   const { profile, refreshProfile } = useAuth();
-  const { businessId } = useBusiness();
+  const { businessId, isOwner } = useBusiness();
   const [business, setBusiness] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "" });
@@ -27,7 +27,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Load business WITHOUT smtp_config – passwords should never reach the client
-    supabase.from("businesses").select("id, name, address, phone, email, timezone, lead_time_minutes, max_days_ahead, cancellation_hours, onboarding_completed, opening_hours, logo_url, slug, smtp_config, allow_admin_providers").eq("id", businessId).single().then(({ data }) => {
+    supabase.from("businesses").select("id, name, address, phone, email, timezone, lead_time_minutes, max_days_ahead, cancellation_hours, onboarding_completed, opening_hours, logo_url, slug, smtp_config, allow_admin_in_service_selection").eq("id", businessId).single().then(({ data }) => {
       if (data) {
         setBusiness(data);
         const smtp = (data as any).smtp_config as any ?? {};
@@ -64,11 +64,29 @@ export default function SettingsPage() {
       lead_time_minutes: business.lead_time_minutes,
       max_days_ahead: business.max_days_ahead,
       cancellation_hours: business.cancellation_hours,
-      allow_admin_providers: business.allow_admin_providers,
     }).eq("id", businessId);
     setSaving(false);
     if (error) { toast.error("Chyba pri ukladaní"); return; }
     toast.success("Nastavenia firmy aktualizované");
+  };
+
+  const toggleAllowAdminInServiceSelection = async (checked: boolean) => {
+    if (!isOwner) return;
+    const prev = business?.allow_admin_in_service_selection ?? false;
+    setBusiness((b: any) => ({ ...b, allow_admin_in_service_selection: checked }));
+
+    const { error } = await (supabase as any).rpc("set_allow_admin_in_service_selection", {
+      p_business_id: businessId,
+      p_value: checked,
+    });
+
+    if (error) {
+      setBusiness((b: any) => ({ ...b, allow_admin_in_service_selection: prev }));
+      toast.error("Len majiteľ môže meniť toto nastavenie");
+      return;
+    }
+
+    toast.success("Nastavenie bookingu administrátora uložené");
   };
 
   const setB = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -144,18 +162,26 @@ export default function SettingsPage() {
                     <Label>Storno lehota (hod)</Label>
                     <Input type="number" value={business.cancellation_hours ?? 24} onChange={setB("cancellation_hours")} />
                   </div>
-                  <div className="col-span-2 rounded-lg border border-border p-3 flex items-center justify-between gap-3">
-                    <div>
-                      <Label htmlFor="allow-admin-providers">Povoliť admina ako poskytovateľa</Label>
-                      <p className="text-xs text-muted-foreground mt-1">Pri vypnutí zostanú staré rezervácie s adminom zachované, ale nové priradenie nebude dostupné.</p>
-                    </div>
-                    <Switch
-                      id="allow-admin-providers"
-                      checked={business.allow_admin_providers ?? true}
-                      onCheckedChange={(checked) => setBusiness((b: any) => ({ ...b, allow_admin_providers: checked }))}
-                    />
-                  </div>
                 </div>
+
+                {isOwner && (
+                  <div className="rounded-lg border border-border p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-medium">Povoliť administrátora ako vykonávateľa služby</p>
+                        <p className="text-sm text-muted-foreground">
+                          Administrátor bude dostupný vo výbere pri vytváraní rezervácie služby a vo výpočte dostupnosti.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!business.allow_admin_in_service_selection}
+                        onCheckedChange={toggleAllowAdminInServiceSelection}
+                        aria-label="Povoliť administrátora ako vykonávateľa služby"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <Button onClick={saveBusiness} disabled={saving} size="sm">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                   Uložiť nastavenia
