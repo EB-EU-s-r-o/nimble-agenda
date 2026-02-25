@@ -3,6 +3,7 @@ import type { CalendarEvent, Employee, TimeSegment } from "./types";
 import CalendarEventCard from "./CalendarEventCard";
 import NonWorkingOverlay from "./NonWorkingOverlay";
 import { getMinutesInTZ } from "@/lib/timezone";
+import { canBookSlot, isSlotBlockedByEvents } from "./slotGuards";
 
 interface EmployeeColumnProps {
   employee: Employee;
@@ -47,21 +48,16 @@ export default function EmployeeColumn({
           slotTime.setHours(hour, 0, 0, 0);
           const minute = getMinutesInTZ(slotTime, timezone);
           const slotWorking = segments.some((segment) => segment.kind === "working" && minute >= segment.startMinutes && minute < segment.endMinutes);
-          const hasBlockedEvent = events.some((event) => {
-            if (event.type !== "blocked") return false;
-            const start = new Date(event.start).getTime();
-            const end = new Date(event.end).getTime();
-            const slot = slotTime.getTime();
-            return slot >= start && slot < end;
-          });
+          const slotBlocked = isSlotBlockedByEvents(slotTime, events);
+          const slotBookable = canBookSlot({ slotWorking, slotBlocked });
 
           return (
             <button
               key={`${employee.id}-${format(slotTime, "HH")}`}
-              onClick={() => onSlotClick(employee.id, slotTime, slotWorking && !hasBlockedEvent)}
+              onClick={() => onSlotClick(employee.id, slotTime, slotBookable)}
               className="absolute left-0 right-0 border-b border-border/30"
               style={{ top: (hour - startHour) * hourHeight, height: hourHeight }}
-              title={slotWorking && !hasBlockedEvent ? "Vytvoriť rezerváciu" : hasBlockedEvent ? "Čas je blokovaný" : "Zamestnanec v tomto čase nepracuje"}
+              title={slotBookable ? "Vytvoriť rezerváciu" : slotBlocked ? "Čas je blokovaný" : "Zamestnanec v tomto čase nepracuje"}
             />
           );
         })}

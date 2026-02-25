@@ -1,8 +1,17 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { addDays, addWeeks, addMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import {
+  addDays,
+  addWeeks,
+  addMonths,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+} from "date-fns";
 import { startOfDayInTZ } from "@/lib/timezone";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import GlassHeader from "./GlassHeader";
 import MonthGrid from "./MonthGrid";
@@ -15,42 +24,59 @@ import BlockTimeSheet from "@/components/booking/BlockTimeSheet";
 import EmployeeFilter from "./mobile/EmployeeFilter";
 import CalendarToolbar from "./mobile/CalendarToolbar";
 import CalendarGrid from "./mobile/CalendarGrid";
-import type { CalendarEvent, Employee, WorkingSchedule } from "./mobile/types";
+import type { CalendarEvent, DayException, Employee, WorkingSchedule } from "./mobile/types";
+import {
+  BLOCK_CUSTOMER_EMAIL,
+  BLOCK_SERVICE_NAME,
+  getBlockedReason,
+  isBlockedAppointmentNote,
+  makeBlockedNote,
+} from "./mobile/blocking";
+import {
+  buildDayExceptionsFromBusinessOverrides,
+  mapAppointmentRowToCalendarAppointment,
+} from "./mobile/event-mappers";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 const SWIPE_THRESHOLD = 60;
 const BUSINESS_TZ = "Europe/Bratislava";
-const BLOCK_TAG = "[BLOCK]";
-const BLOCK_CUSTOMER_EMAIL = "internal-block@nimble.local";
-const BLOCK_SERVICE_NAME = "Blokovaný čas";
 
 const EMPLOYEE_COLOR_ORDER = ["#22c55e", "#ec4899", "#3b82f6", "#f97316", "#a855f7", "#14b8a6"];
 
-type SupabaseAppointmentRow = {
-  id: string;
-  start_at: string;
-  end_at: string;
-  status: string;
-  notes: string | null;
-  employee_id: string;
-  services?: { name_sk?: string | null } | null;
-  employees?: { display_name?: string | null } | null;
-  customers?: { full_name?: string | null } | null;
+const DAY_INDEX: Record<Tables<"schedules">["day_of_week"], number> = {
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+  sunday: 0,
 };
 
-const isBlockedAppointment = (notes?: string | null) => Boolean(notes?.startsWith(BLOCK_TAG));
-const blockedReason = (notes?: string | null) => notes?.replace(BLOCK_TAG, "").trim() || BLOCK_SERVICE_NAME;
+type ServiceOption = Pick<
+  Tables<"services">,
+  "id" | "name_sk" | "duration_minutes" | "price"
+>;
+
+type AppointmentQueryRow = Tables<"appointments"> & {
+  services: { name_sk: string | null } | null;
+  employees: { display_name: string | null } | null;
+  customers: { full_name: string | null } | null;
+};
 
 export default function MobileCalendarShell() {
-  const [currentDate, setCurrentDate] = useState(() => startOfDayInTZ(new Date(), BUSINESS_TZ));
+  const [currentDate, setCurrentDate] = useState(() =>
+    startOfDayInTZ(new Date(), BUSINESS_TZ),
+  );
   const [view, setView] = useState<CalendarView>("day");
   const [direction, setDirection] = useState(0);
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [businessHours, setBusinessHours] = useState<any[]>([]);
+  const [businessHours, setBusinessHours] = useState<Tables<"business_hours">[]>([]);
   const [schedules, setSchedules] = useState<WorkingSchedule[]>([]);
-  const [scheduleRows, setScheduleRows] = useState<any[]>([]);
+  const [scheduleRows, setScheduleRows] = useState<Tables<"schedules">[]>([]);
+  const [dayExceptions, setDayExceptions] = useState<DayException[]>([]);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -86,7 +112,11 @@ export default function MobileCalendarShell() {
         .order("sort_order"),
     ]);
 
-    const mappedEmployees = (empRes.data ?? []).map((employee: any, index: number) => ({
+    if (svcRes.error) throw svcRes.error;
+    if (empRes.error) throw empRes.error;
+    if (bhRes.error) throw bhRes.error;
+
+    const mappedEmployees: Employee[] = (empRes.data ?? []).map((employee, index) => ({
       id: employee.id,
       name: employee.display_name,
       color: EMPLOYEE_COLOR_ORDER[index % EMPLOYEE_COLOR_ORDER.length],
@@ -94,28 +124,41 @@ export default function MobileCalendarShell() {
       orderIndex: index,
     }));
 
-    const empIds = mappedEmployees.map((item) => item.id);
-    const schRes = empIds.length > 0
-      ? await supabase
-          .from("schedules")
-          .select("employee_id, day_of_week, start_time, end_time")
-          .in("employee_id", empIds)
-      : { data: [] as any[] };
+    const employeeIds = mappedEmployees.map((item) => item.id);
 
-    setScheduleRows(schRes.data ?? []);
+    const [schRes, overrideRes] = await Promise.all([
+      employeeIds.length > 0
+        ? supabase
+            .from("schedules")
+            .select("employee_id, day_of_week, start_time, end_time, created_at, id")
+            .in("employee_id", employeeIds)
+        : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("business_date_overrides")
+        .select("id, business_id, override_date, mode, start_time, end_time, label, created_at")
+        .eq("business_id", DEMO_BUSINESS_ID),
+    ]);
 
-    const mappedSchedules: WorkingSchedule[] = (schRes.data ?? []).map((schedule: any) => ({
+    if (schRes.error) throw schRes.error;
+    if (overrideRes.error) throw overrideRes.error;
+
+    const scheduleData = (schRes.data ?? []) as Tables<"schedules">[];
+    const overrides = (overrideRes.data ?? []) as Tables<"business_date_overrides">[];
+
+    const mappedSchedules: WorkingSchedule[] = scheduleData.map((schedule) => ({
       employeeId: schedule.employee_id,
-      weekday: Number(schedule.day_of_week),
+      weekday: DAY_INDEX[schedule.day_of_week],
       start: schedule.start_time,
       end: schedule.end_time,
       breaks: [],
     }));
 
-    setServices(svcRes.data ?? []);
+    setServices((svcRes.data ?? []) as ServiceOption[]);
     setEmployees(mappedEmployees);
-    setBusinessHours(bhRes.data ?? []);
+    setBusinessHours((bhRes.data ?? []) as Tables<"business_hours">[]);
     setSchedules(mappedSchedules);
+    setScheduleRows(scheduleData);
+    setDayExceptions(buildDayExceptionsFromBusinessOverrides(overrides, employeeIds));
     setSelectedEmployeeIds((prev) => {
       if (prev.length > 0) {
         return mappedEmployees
@@ -128,15 +171,15 @@ export default function MobileCalendarShell() {
 
   const getDateRange = useCallback(() => {
     if (view === "month") {
-      const ms = startOfMonth(currentDate);
-      const me = endOfMonth(currentDate);
-      const ws = startOfWeek(ms, { weekStartsOn: 1 });
-      const we = endOfWeek(me, { weekStartsOn: 1 });
-      return { start: ws, end: addDays(we, 1) };
+      const monthStart = startOfMonth(currentDate);
+      const monthEnd = endOfMonth(currentDate);
+      const weekStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+      return { start: weekStart, end: addDays(weekEnd, 1) };
     }
     if (view === "week") {
-      const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
-      return { start: ws, end: addDays(ws, 7) };
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+      return { start: weekStart, end: addDays(weekStart, 7) };
     }
     const dayStart = startOfDayInTZ(currentDate, BUSINESS_TZ);
     return { start: dayStart, end: addDays(dayStart, 1) };
@@ -144,37 +187,22 @@ export default function MobileCalendarShell() {
 
   const loadAppointments = useCallback(async () => {
     const { start, end } = getDateRange();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("appointments")
-      .select(`
-        id, start_at, end_at, status, notes, employee_id,
-        services(name_sk),
-        employees(display_name),
-        customers(full_name)
-      `)
+      .select(
+        "id, start_at, end_at, status, notes, employee_id, customer_id, service_id, business_id, created_at, updated_at, services(name_sk), employees(display_name), customers(full_name)",
+      )
       .eq("business_id", DEMO_BUSINESS_ID)
       .gte("start_at", start.toISOString())
       .lt("start_at", end.toISOString())
       .neq("status", "cancelled")
       .order("start_at");
 
-    const mapped: CalendarAppointment[] = ((data ?? []) as SupabaseAppointmentRow[]).map((appointment) => {
-      const blocked = isBlockedAppointment(appointment.notes);
-      const title = blocked ? blockedReason(appointment.notes) : appointment.services?.name_sk ?? "–";
+    if (error) throw error;
 
-      return {
-        id: appointment.id,
-        start_at: appointment.start_at,
-        end_at: appointment.end_at,
-        status: appointment.status,
-        service_name: title,
-        employee_name: appointment.employees?.display_name ?? "–",
-        customer_name: blocked ? "Interné" : appointment.customers?.full_name ?? "–",
-        employee_id: appointment.employee_id,
-        type: blocked ? "blocked" : "reservation",
-        notes: appointment.notes,
-      };
-    });
+    const mapped = ((data ?? []) as AppointmentQueryRow[]).map((row) =>
+      mapAppointmentRowToCalendarAppointment(row),
+    );
 
     setAppointments(mapped);
   }, [getDateRange]);
@@ -183,6 +211,9 @@ export default function MobileCalendarShell() {
     setRefreshing(true);
     try {
       await Promise.all([loadStaticData(), loadAppointments()]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nepodarilo sa obnoviť kalendár";
+      toast.error(message);
     } finally {
       setRefreshing(false);
     }
@@ -227,16 +258,16 @@ export default function MobileCalendarShell() {
 
   const handleTapApt = (apt: CalendarAppointment) => {
     if (apt.type === "blocked") {
-      toast.info(`Blokovaný čas: ${blockedReason(apt.notes)}`);
+      toast.info(`Blokovaný čas: ${getBlockedReason(apt.notes)}`);
       return;
     }
     setSelectedApt(apt);
     setDetailOpen(true);
   };
 
-  const handleSlotTap = (_employeeId: string, time: Date, isWorking: boolean) => {
-    if (!isWorking) {
-      toast.warning("Zamestnanec v tomto čase nepracuje");
+  const handleSlotTap = (_employeeId: string, time: Date, isBookable: boolean) => {
+    if (!isBookable) {
+      toast.warning("V tomto čase nie je možné vytvoriť rezerváciu");
       return;
     }
     setSelectedSlotTime(time);
@@ -255,23 +286,25 @@ export default function MobileCalendarShell() {
       body: { business_id: DEMO_BUSINESS_ID, ...data },
     });
     if (error) {
-      toast.error("Chyba pri vytváraní rezervácie");
+      const message = error.message || "Chyba pri vytváraní rezervácie";
+      toast.error(message);
       throw error;
     }
     toast.success("Rezervácia vytvorená!");
-    loadAppointments();
+    await loadAppointments();
   };
 
   const ensureBlockCustomerId = useCallback(async () => {
     if (blockCustomerIdRef.current) return blockCustomerIdRef.current;
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("customers")
       .select("id")
       .eq("business_id", DEMO_BUSINESS_ID)
       .eq("email", BLOCK_CUSTOMER_EMAIL)
       .maybeSingle();
 
+    if (existingError) throw existingError;
     if (existing?.id) {
       blockCustomerIdRef.current = existing.id;
       return existing.id;
@@ -287,7 +320,10 @@ export default function MobileCalendarShell() {
       .select("id")
       .single();
 
-    if (error || !created?.id) throw new Error("Nepodarilo sa vytvoriť interného zákazníka pre blokovanie času");
+    if (error || !created?.id) {
+      throw new Error(error?.message || "Nepodarilo sa vytvoriť interného zákazníka");
+    }
+
     blockCustomerIdRef.current = created.id;
     return created.id;
   }, []);
@@ -295,13 +331,14 @@ export default function MobileCalendarShell() {
   const ensureBlockServiceId = useCallback(async () => {
     if (blockServiceIdRef.current) return blockServiceIdRef.current;
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("services")
       .select("id")
       .eq("business_id", DEMO_BUSINESS_ID)
       .eq("name_sk", BLOCK_SERVICE_NAME)
       .maybeSingle();
 
+    if (existingError) throw existingError;
     if (existing?.id) {
       blockServiceIdRef.current = existing.id;
       return existing.id;
@@ -320,14 +357,26 @@ export default function MobileCalendarShell() {
       .select("id")
       .single();
 
-    if (error || !created?.id) throw new Error("Nepodarilo sa vytvoriť internú službu pre blokovanie času");
+    if (error || !created?.id) {
+      throw new Error(error?.message || "Nepodarilo sa vytvoriť internú službu");
+    }
+
     blockServiceIdRef.current = created.id;
     return created.id;
   }, []);
 
-  const handleBlockTimeSubmit = async (payload: { employee_id: string; start_at: string; end_at: string; reason: string }) => {
+  const handleBlockTimeSubmit = async (payload: {
+    employee_id: string;
+    start_at: string;
+    end_at: string;
+    reason: string;
+  }) => {
     try {
-      const [customerId, serviceId] = await Promise.all([ensureBlockCustomerId(), ensureBlockServiceId()]);
+      const [customerId, serviceId] = await Promise.all([
+        ensureBlockCustomerId(),
+        ensureBlockServiceId(),
+      ]);
+
       const { error } = await supabase.from("appointments").insert({
         business_id: DEMO_BUSINESS_ID,
         customer_id: customerId,
@@ -336,30 +385,46 @@ export default function MobileCalendarShell() {
         start_at: payload.start_at,
         end_at: payload.end_at,
         status: "confirmed",
-        notes: `${BLOCK_TAG} ${payload.reason}`,
+        notes: makeBlockedNote(payload.reason),
       });
+
       if (error) throw error;
+
       toast.success("Blokovaný čas uložený");
       await loadAppointments();
     } catch (error) {
-      console.error(error);
-      toast.error("Nepodarilo sa uložiť blokovaný čas");
+      const message = error instanceof Error ? error.message : "Nepodarilo sa uložiť blokovaný čas";
+      toast.error(message);
       throw error;
     }
   };
 
   const handleCancel = async (id: string) => {
-    await supabase.from("appointments").update({ status: "cancelled" }).eq("id", id);
+    const { error } = await supabase
+      .from("appointments")
+      .update({ status: "cancelled" })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message || "Nepodarilo sa zrušiť rezerváciu");
+      return;
+    }
     toast.success("Rezervácia zrušená");
     setDetailOpen(false);
-    loadAppointments();
+    await loadAppointments();
   };
 
   const handleMarkArrived = async (id: string) => {
-    await supabase.from("appointments").update({ status: "completed" }).eq("id", id);
+    const { error } = await supabase
+      .from("appointments")
+      .update({ status: "completed" })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message || "Nepodarilo sa označiť rezerváciu");
+      return;
+    }
     toast.success("Označené ako prišiel");
     setDetailOpen(false);
-    loadAppointments();
+    await loadAppointments();
   };
 
   const toggleEmployee = (employeeId: string) => {
@@ -384,7 +449,10 @@ export default function MobileCalendarShell() {
         title: appointment.service_name,
         clientName: appointment.customer_name,
         serviceName: appointment.service_name,
-        type: appointment.type === "blocked" ? "blocked" : "reservation",
+        type:
+          appointment.type === "blocked" || isBlockedAppointmentNote(appointment.notes)
+            ? "blocked"
+            : "reservation",
         status: appointment.status,
       })),
     [appointments],
@@ -393,7 +461,11 @@ export default function MobileCalendarShell() {
   const animKey = `${view}-${currentDate.toISOString()}`;
 
   return (
-    <div className="cal-shell flex h-[100dvh] flex-col bg-background" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div
+      className="cal-shell flex h-[100dvh] flex-col bg-background"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <GlassHeader
         currentDate={currentDate}
         view={view}
@@ -427,7 +499,10 @@ export default function MobileCalendarShell() {
         <motion.div
           key={animKey}
           custom={direction}
-          initial={{ x: direction === 0 ? 0 : direction > 0 ? "40%" : "-40%", opacity: 0 }}
+          initial={{
+            x: direction === 0 ? 0 : direction > 0 ? "40%" : "-40%",
+            opacity: 0,
+          }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: direction > 0 ? "-40%" : "40%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.8 }}
@@ -458,7 +533,7 @@ export default function MobileCalendarShell() {
               selectedEmployeeIds={selectedEmployeeIds}
               events={dayEvents.filter((event) => selectedEmployeeIds.includes(event.employeeId))}
               schedules={schedules}
-              dayExceptions={[]}
+              dayExceptions={dayExceptions}
               timezone={BUSINESS_TZ}
               onSlotClick={handleSlotTap}
               onEventClick={(event) => {
