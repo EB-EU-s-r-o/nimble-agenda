@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, Save, Mail } from "lucide-react";
 import { BusinessHoursEditor } from "@/components/admin/BusinessHoursEditor";
+import { Switch } from "@/components/ui/switch";
 
 export default function SettingsPage() {
   const { profile, refreshProfile } = useAuth();
@@ -26,7 +27,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Load business WITHOUT smtp_config – passwords should never reach the client
-    supabase.from("businesses").select("id, name, address, phone, email, timezone, lead_time_minutes, max_days_ahead, cancellation_hours, onboarding_completed, opening_hours, logo_url, slug, smtp_config").eq("id", businessId).single().then(({ data }) => {
+    supabase.from("businesses").select("id, name, address, phone, email, timezone, lead_time_minutes, max_days_ahead, cancellation_hours, onboarding_completed, opening_hours, logo_url, slug, smtp_config, allow_admin_providers").eq("id", businessId).single().then(({ data }) => {
       if (data) {
         setBusiness(data);
         const smtp = (data as any).smtp_config as any ?? {};
@@ -63,6 +64,7 @@ export default function SettingsPage() {
       lead_time_minutes: business.lead_time_minutes,
       max_days_ahead: business.max_days_ahead,
       cancellation_hours: business.cancellation_hours,
+      allow_admin_providers: business.allow_admin_providers,
     }).eq("id", businessId);
     setSaving(false);
     if (error) { toast.error("Chyba pri ukladaní"); return; }
@@ -141,6 +143,17 @@ export default function SettingsPage() {
                   <div className="space-y-1.5">
                     <Label>Storno lehota (hod)</Label>
                     <Input type="number" value={business.cancellation_hours ?? 24} onChange={setB("cancellation_hours")} />
+                  </div>
+                  <div className="col-span-2 rounded-lg border border-border p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <Label htmlFor="allow-admin-providers">Povoliť admina ako poskytovateľa</Label>
+                      <p className="text-xs text-muted-foreground mt-1">Pri vypnutí zostanú staré rezervácie s adminom zachované, ale nové priradenie nebude dostupné.</p>
+                    </div>
+                    <Switch
+                      id="allow-admin-providers"
+                      checked={business.allow_admin_providers ?? true}
+                      onCheckedChange={(checked) => setBusiness((b: any) => ({ ...b, allow_admin_providers: checked }))}
+                    />
                   </div>
                 </div>
                 <Button onClick={saveBusiness} disabled={saving} size="sm">

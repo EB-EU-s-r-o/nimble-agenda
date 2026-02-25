@@ -253,6 +253,7 @@ export type Database = {
       businesses: {
         Row: {
           address: string | null
+          allow_admin_providers: boolean
           cancellation_hours: number
           created_at: string
           email: string | null
@@ -271,6 +272,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          allow_admin_providers?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null
@@ -289,6 +291,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          allow_admin_providers?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null

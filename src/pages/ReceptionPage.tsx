@@ -40,6 +40,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { format, addDays, subDays } from "date-fns";
+import { filterAssignableProviders } from "@/lib/providerSelection";
 import { sk } from "date-fns/locale";
 
 function dayISO(d = new Date()) {
@@ -91,11 +92,33 @@ export default function ReceptionPage() {
   useEffect(() => {
     supabase
       .from("employees")
-      .select("id, display_name")
+      .select("id, display_name, profile_id")
       .eq("business_id", businessId)
       .eq("is_active", true)
-      .then(({ data }) => {
-        if (data) setEmployees(data);
+      .then(async ({ data }) => {
+        if (!data) return;
+
+        const { data: bizData } = await supabase
+          .from("businesses")
+          .select("allow_admin_providers")
+          .eq("id", businessId)
+          .maybeSingle();
+
+        const selectableEmployees = await filterAssignableProviders({
+          businessId,
+          allowAdminProviders: (bizData as any)?.allow_admin_providers ?? true,
+          providers: data,
+          fetchAdminProfileIds: async (targetBusinessId) => {
+            const { data: memberships } = await supabase
+              .from("memberships")
+              .select("profile_id")
+              .eq("business_id", targetBusinessId)
+              .in("role", ["owner", "admin"]);
+            return (memberships ?? []).map((m: any) => m.profile_id).filter(Boolean);
+          },
+        });
+
+        setEmployees(selectableEmployees);
       });
     supabase
       .from("services")

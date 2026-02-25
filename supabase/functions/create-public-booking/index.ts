@@ -161,6 +161,15 @@ serve(async (req) => {
       );
     }
 
+
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("allow_admin_providers")
+      .eq("id", business_id)
+      .maybeSingle();
+
+    const allowAdminProviders = business?.allow_admin_providers ?? true;
+
     // 2. Verify employee exists and is active
     const { data: employee, error: empErr } = await supabase
       .from("employees")
@@ -175,6 +184,23 @@ serve(async (req) => {
         JSON.stringify({ error: "Zamestnanec nebol nájdený" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (!allowAdminProviders && employee.profile_id) {
+      const { data: adminMembership } = await supabase
+        .from("memberships")
+        .select("id")
+        .eq("business_id", business_id)
+        .eq("profile_id", employee.profile_id)
+        .in("role", ["owner", "admin"])
+        .maybeSingle();
+
+      if (adminMembership) {
+        return new Response(
+          JSON.stringify({ error: "Tento poskytovateľ nie je dostupný pre nové rezervácie" }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // 3. Calculate end time

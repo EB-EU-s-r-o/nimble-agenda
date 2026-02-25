@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { format, addDays, startOfDay, isSameDay, isAfter, isBefore, getDaysInMonth, getDay, startOfMonth } from "date-fns";
 import { sk } from "date-fns/locale";
 import { z } from "zod";
+import { filterAssignableProviders } from "@/lib/providerSelection";
 import { useTheme } from "next-themes";
 import { User, Mail, Phone, PenLine, ChevronLeft, ChevronRight, Star, Check, Moon, Sun, Loader2 } from "lucide-react";
 import miskaImg from "@/assets/employee-miska.jpeg";
@@ -42,6 +43,7 @@ interface ServiceRow {
 interface EmployeeRow {
   id: string;
   display_name: string;
+  profile_id: string | null;
   email: string | null;
   phone: string | null;
   is_active: boolean;
@@ -102,7 +104,23 @@ export default function BookingPage() {
       ]);
       setBusiness(bizRes.data);
       setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
-      setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
+
+      const allowAdminProviders = (bizRes.data as any)?.allow_admin_providers ?? true;
+      const rawEmployees = (empRes.data ?? []) as unknown as EmployeeRow[];
+      const selectableEmployees = await filterAssignableProviders({
+        businessId: DEMO_BUSINESS_ID,
+        allowAdminProviders,
+        providers: rawEmployees,
+        fetchAdminProfileIds: async (businessId) => {
+          const { data } = await supabase
+            .from("memberships")
+            .select("profile_id")
+            .eq("business_id", businessId)
+            .in("role", ["owner", "admin"]);
+          return (data ?? []).map((m: any) => m.profile_id).filter(Boolean);
+        },
+      });
+      setEmployees(selectableEmployees);
       setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
         day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
       })));

@@ -12,6 +12,7 @@ import type { CalendarView } from "./CalendarViewSwitcher";
 import type { CalendarAppointment } from "./AppointmentBlock";
 import QuickBookingSheet from "@/components/booking/QuickBookingSheet";
 import AppointmentDetailSheet from "@/components/booking/AppointmentDetailSheet";
+import { filterAssignableProviders } from "@/lib/providerSelection";
 
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 const SWIPE_THRESHOLD = 60;
@@ -40,17 +41,31 @@ export default function MobileCalendarShell() {
   // Load services, employees, business hours, schedules once
   useEffect(() => {
     const load = async () => {
-      const [svcRes, empRes, bhRes] = await Promise.all([
+      const [svcRes, empRes, bhRes, bizRes] = await Promise.all([
         supabase.from("services").select("id, name_sk, duration_minutes, price").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-        supabase.from("employees").select("id, display_name").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+        supabase.from("employees").select("id, display_name, profile_id").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
         supabase.from("business_hours").select("day_of_week, mode, start_time, end_time").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
+        supabase.from("businesses").select("allow_admin_providers").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
       ]);
-      const empIds = (empRes.data ?? []).map((e: any) => e.id);
+      const selectableEmployees = await filterAssignableProviders({
+        businessId: DEMO_BUSINESS_ID,
+        allowAdminProviders: (bizRes.data as any)?.allow_admin_providers ?? true,
+        providers: empRes.data ?? [],
+        fetchAdminProfileIds: async (businessId) => {
+          const { data } = await supabase
+            .from("memberships")
+            .select("profile_id")
+            .eq("business_id", businessId)
+            .in("role", ["owner", "admin"]);
+          return (data ?? []).map((m: any) => m.profile_id).filter(Boolean);
+        },
+      });
+      const empIds = selectableEmployees.map((e: any) => e.id);
       const schRes = empIds.length > 0
         ? await supabase.from("schedules").select("employee_id, day_of_week, start_time, end_time").in("employee_id", empIds)
         : { data: [] };
       setServices(svcRes.data ?? []);
-      setEmployees(empRes.data ?? []);
+      setEmployees(selectableEmployees);
       setBusinessHours(bhRes.data ?? []);
       setSchedules(schRes.data ?? []);
     };

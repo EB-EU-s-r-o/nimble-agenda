@@ -899,3 +899,7 @@ CROSS JOIN public.services s
 WHERE e.business_id = s.business_id
 ON CONFLICT DO NOTHING;
 
+
+-- === 20260224120000_allow_admin_providers_toggle.sql ===
+ALTER TABLE public.businesses
+ADD COLUMN IF NOT EXISTS allow_admin_providers boolean NOT NULL DEFAULT true;
