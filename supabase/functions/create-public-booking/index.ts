@@ -214,18 +214,20 @@ serve(async (req) => {
       );
     }
 
-    // 2. Verify employee exists and is active
+    // 2. Verify employee exists and is bookable for service reservations
     const { data: employee, error: empErr } = await supabase
       .from("employees")
       .select("*")
       .eq("id", employee_id)
       .eq("business_id", business_id)
       .eq("is_active", true)
+      .eq("is_bookable", true)
+      .eq("can_receive_service_bookings", true)
       .single();
 
     if (empErr || !employee) {
       return new Response(
-        JSON.stringify({ error: "Zamestnanec nebol nájdený" }),
+        JSON.stringify({ error: "Vybraný pracovník nie je dostupný pre rezerváciu služby" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
