@@ -78,7 +78,7 @@ const App = () => (
               <Route
                 path="/admin"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute>
                     <AdminLayout><DashboardPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -86,7 +86,7 @@ const App = () => (
               <Route
                 path="/admin/calendar"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><CalendarPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -94,7 +94,7 @@ const App = () => (
               <Route
                 path="/admin/appointments"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute>
                     <AdminLayout><AppointmentsPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -102,7 +102,7 @@ const App = () => (
               <Route
                 path="/admin/employees"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><EmployeesPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -110,7 +110,7 @@ const App = () => (
               <Route
                 path="/admin/services"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><ServicesPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -118,7 +118,7 @@ const App = () => (
               <Route
                 path="/admin/customers"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><CustomersPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -126,7 +126,7 @@ const App = () => (
               <Route
                 path="/admin/settings"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><SettingsPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -134,7 +134,7 @@ const App = () => (
               <Route
                 path="/admin/my"
                 element={
-                  <ProtectedRoute requireAdmin={true}>
+                  <ProtectedRoute allowedRoles={["employee"]}>
                     <AdminLayout><MySchedulePage /></AdminLayout>
                   </ProtectedRoute>
                 }

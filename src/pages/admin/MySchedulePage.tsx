@@ -55,6 +55,7 @@ export default function MySchedulePage() {
   const [date, setDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [employeeActive, setEmployeeActive] = useState(true);
 
   const [detailModal, setDetailModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
@@ -65,12 +66,13 @@ export default function MySchedulePage() {
     if (!user) return;
     supabase
       .from("employees")
-      .select("id")
+      .select("id, is_active")
       .eq("business_id", businessId)
       .eq("profile_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         setEmployeeId(data?.id ?? null);
+        setEmployeeActive(data?.is_active ?? false);
       });
   }, [user, businessId]);
 
@@ -128,6 +130,15 @@ export default function MySchedulePage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
         <p>Váš účet nie je prepojený so zamestnancom.</p>
+        <p className="text-sm">Kontaktujte administrátora.</p>
+      </div>
+    );
+  }
+
+  if (!employeeActive && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <p>Váš zamestnanecký účet je deaktivovaný.</p>
         <p className="text-sm">Kontaktujte administrátora.</p>
       </div>
     );

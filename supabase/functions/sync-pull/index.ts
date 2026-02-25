@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     // Get user's business
     const { data: membership } = await supabaseAdmin
       .from("memberships")
-      .select("business_id")
+      .select("business_id, role")
       .eq("profile_id", userId)
       .in("role", ["owner", "admin", "employee"])
       .limit(1)
@@ -69,18 +69,42 @@ Deno.serve(async (req) => {
     }
 
     const businessId = membership.business_id;
+
+    let scopedEmployeeId: string | null = null;
+    if (membership.role === "employee") {
+      const { data: employee } = await supabaseAdmin
+        .from("employees")
+        .select("id, is_active")
+        .eq("business_id", businessId)
+        .eq("profile_id", userId)
+        .maybeSingle();
+
+      if (!employee?.id || employee.is_active === false) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Employee account is not linked or is deactivated" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      scopedEmployeeId = employee.id;
+    }
+
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endDate = new Date(startOfDay.getTime() + days * 24 * 60 * 60 * 1000);
 
-    const { data: appointments, error } = await supabaseAdmin
+    let appointmentsQuery = supabaseAdmin
       .from("appointments")
       .select("id, start_at, end_at, status, customers(full_name, phone), employees(display_name, id), services(name_sk, id)")
       .eq("business_id", businessId)
       .gte("start_at", startOfDay.toISOString())
       .lt("start_at", endDate.toISOString())
-      .neq("status", "cancelled")
-      .order("start_at");
+      .neq("status", "cancelled");
+
+    if (scopedEmployeeId) {
+      appointmentsQuery = appointmentsQuery.eq("employee_id", scopedEmployeeId);
+    }
+
+    const { data: appointments, error } = await appointmentsQuery.order("start_at");
 
     if (error) {
       return new Response(
