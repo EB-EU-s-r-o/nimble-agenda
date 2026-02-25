@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { format, addDays, startOfDay, isSameDay, isAfter, isBefore, getDaysInMonth, getDay, startOfMonth } from "date-fns";
 import { sk } from "date-fns/locale";
 import { z } from "zod";
+import { getSubcategoriesInCanonicalOrder, sortServicesByCanonicalOrder } from "@/lib/priceListOrder";
 import { useTheme } from "next-themes";
 import { User, Mail, Phone, PenLine, ChevronLeft, ChevronRight, Star, Check, Moon, Sun, Loader2 } from "lucide-react";
 import miskaImg from "@/assets/employee-miska.jpeg";
@@ -95,13 +96,13 @@ export default function BookingPage() {
     const load = async () => {
       const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
         supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
-        supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
+        supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true),
         supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
         supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
         supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
       ]);
       setBusiness(bizRes.data);
-      setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
+      setServices(sortServicesByCanonicalOrder((svcRes.data ?? []) as unknown as ServiceRow[]));
       setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
       setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
         day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
@@ -136,16 +137,13 @@ export default function BookingPage() {
 
   // Derived: grouped subcategories
   const subcategories = useMemo(() => {
-    const cats = services
-      .filter((s) => s.category === category && s.subcategory)
-      .map((s) => s.subcategory!);
-    return [...new Set(cats)].sort();
+    return getSubcategoriesInCanonicalOrder(category, services);
   }, [services, category]);
 
   // Derived: filtered services for selected subcategory
   const filteredServices = useMemo(() => {
     if (!subcategory) return [];
-    return services.filter((s) => s.category === category && s.subcategory === subcategory);
+    return sortServicesByCanonicalOrder(services.filter((s) => s.category === category && s.subcategory === subcategory));
   }, [services, category, subcategory]);
 
   const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
@@ -397,11 +395,6 @@ export default function BookingPage() {
           >
             {isDark ? <Sun size={20} className="text-primary" /> : <Moon size={20} className="text-foreground" />}
           </button>
-          <div className="w-6 h-6 rounded-full overflow-hidden border border-border">
-            <div className="w-full h-1/3 bg-white" />
-            <div className="w-full h-1/3 bg-blue-600" />
-            <div className="w-full h-1/3 bg-red-600" />
-          </div>
         </div>
       </header>
 
