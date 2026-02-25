@@ -66,7 +66,6 @@ export default function BookingPage() {
   const [businessHourEntries, setBusinessHourEntries] = useState<BusinessHourEntry[]>([]);
   const [dateOverrides, setDateOverrides] = useState<DateOverrideEntry[]>([]);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
-  const [employeeServiceMap, setEmployeeServiceMap] = useState<Record<string, string[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
 
   // Booking states
@@ -96,13 +95,13 @@ export default function BookingPage() {
       const [bizRes, svcRes, empRes, bhRes, bdoRes] = await Promise.all([
         supabase.from("businesses").select("*").eq("id", DEMO_BUSINESS_ID).maybeSingle(),
         supabase.from("services").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-        supabase.from("employees").select("*").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+        supabase.functions.invoke("list-bookable-providers", { body: { business_id: DEMO_BUSINESS_ID } }),
         supabase.from("business_hours").select("*").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
         supabase.from("business_date_overrides").select("*").eq("business_id", DEMO_BUSINESS_ID).gte("override_date", new Date().toISOString().slice(0, 10)),
       ]);
       setBusiness(bizRes.data);
       setServices((svcRes.data ?? []) as unknown as ServiceRow[]);
-      setEmployees((empRes.data ?? []) as unknown as EmployeeRow[]);
+      setEmployees(((empRes.data as any)?.providers ?? []) as EmployeeRow[]);
       setBusinessHourEntries((bhRes.data ?? []).map((h: Tables<"business_hours">) => ({
         day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time,
       })));
@@ -110,7 +109,7 @@ export default function BookingPage() {
         override_date: o.override_date, mode: o.mode, start_time: o.start_time, end_time: o.end_time,
       })));
 
-      const empIds = (empRes.data ?? []).map((e: Tables<"employees">) => e.id);
+      const empIds = (((empRes.data as any)?.providers ?? []) as EmployeeRow[]).map((e) => e.id);
       if (empIds.length) {
         const { data: scheds } = await supabase.from("schedules").select("*").in("employee_id", empIds);
         const map: Record<string, EmployeeSchedule[]> = {};
@@ -121,13 +120,6 @@ export default function BookingPage() {
         setSchedules(map);
       }
 
-      const { data: esMap } = await (supabase as any).from("employee_services").select("employee_id, service_id");
-      const eMap: Record<string, string[]> = {};
-      (esMap ?? []).forEach((item: any) => {
-        if (!eMap[item.employee_id]) eMap[item.employee_id] = [];
-        eMap[item.employee_id].push(item.service_id);
-      });
-      setEmployeeServiceMap(eMap);
 
       setInitialLoading(false);
     };
@@ -150,15 +142,26 @@ export default function BookingPage() {
 
   const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
 
-  // Filter employees based on selected service
-  const filteredEmployees = useMemo(() => {
-    if (!selectedServiceId) return employees;
-    return employees.filter(emp => {
-      // If we have no mapping for this employee, assume they do all services (fallback)
-      if (!employeeServiceMap[emp.id]) return true;
-      return employeeServiceMap[emp.id].includes(selectedServiceId);
-    });
-  }, [employees, selectedServiceId, employeeServiceMap]);
+  // Providers are server-filtered to bookable employees only.
+  const filteredEmployees = useMemo(() => employees, [employees]);
+
+  useEffect(() => {
+    const loadProviders = async () => {
+      const { data, error } = await supabase.functions.invoke("list-bookable-providers", {
+        body: { business_id: DEMO_BUSINESS_ID, service_id: selectedServiceId ?? undefined },
+      });
+      if (error) {
+        toast.error("Nepodarilo sa načítať dostupných pracovníkov");
+        return;
+      }
+      const providers = ((data as any)?.providers ?? []) as EmployeeRow[];
+      setEmployees(providers);
+      if (selectedWorkerId && !providers.some((p) => p.id === selectedWorkerId)) {
+        setSelectedWorkerId(null);
+      }
+    };
+    loadProviders();
+  }, [selectedServiceId, selectedWorkerId]);
 
   const selectedEmployee = employees.find((e) => e.id === selectedWorkerId) ?? null;
 

@@ -42,15 +42,16 @@ export default function MobileCalendarShell() {
     const load = async () => {
       const [svcRes, empRes, bhRes] = await Promise.all([
         supabase.from("services").select("id, name_sk, duration_minutes, price").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("name_sk"),
-        supabase.from("employees").select("id, display_name").eq("business_id", DEMO_BUSINESS_ID).eq("is_active", true).order("display_name"),
+        supabase.functions.invoke("list-bookable-providers", { body: { business_id: DEMO_BUSINESS_ID } }),
         supabase.from("business_hours").select("day_of_week, mode, start_time, end_time").eq("business_id", DEMO_BUSINESS_ID).order("sort_order"),
       ]);
-      const empIds = (empRes.data ?? []).map((e: any) => e.id);
+      const providers = ((empRes.data as any)?.providers ?? []) as any[];
+      const empIds = providers.map((e: any) => e.id);
       const schRes = empIds.length > 0
         ? await supabase.from("schedules").select("employee_id, day_of_week, start_time, end_time").in("employee_id", empIds)
         : { data: [] };
       setServices(svcRes.data ?? []);
-      setEmployees(empRes.data ?? []);
+      setEmployees(providers);
       setBusinessHours(bhRes.data ?? []);
       setSchedules(schRes.data ?? []);
     };
