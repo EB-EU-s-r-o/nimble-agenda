@@ -88,6 +88,17 @@ async function tryClaimBooking(claimToken: string): Promise<boolean> {
   }
 }
 
+function getFormSubmitHandler(
+  mode: AuthMode,
+  handleLogin: (e: React.FormEvent) => void,
+  handleRegister: (e: React.FormEvent) => void,
+  handleForgot: (e: React.FormEvent) => void
+): (e: React.FormEvent) => void {
+  if (mode === "login") return handleLogin;
+  if (mode === "register") return handleRegister;
+  return handleForgot;
+}
+
 // ---------------------------------------------------------------------------
 // useAuthForm hook
 // ---------------------------------------------------------------------------
@@ -229,11 +240,7 @@ function useAuthForm() {
     [form.email]
   );
 
-  const handleFormSubmit = (() => {
-    if (mode === "login") return handleLogin;
-    if (mode === "register") return handleRegister;
-    return handleForgot;
-  })();
+  const handleFormSubmit = getFormSubmitHandler(mode, handleLogin, handleRegister, handleForgot);
 
   const copy = AUTH_COPY[mode];
 
@@ -368,6 +375,7 @@ export default function AuthPage() {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="jana@example.sk"
                   value={form.email}
                   onChange={setField("email")}
@@ -383,6 +391,7 @@ export default function AuthPage() {
                   <Input
                     id="password"
                     type="password"
+                    autoComplete={mode === "register" ? "new-password" : "current-password"}
                     placeholder="••••••••"
                     value={form.password}
                     onChange={setField("password")}

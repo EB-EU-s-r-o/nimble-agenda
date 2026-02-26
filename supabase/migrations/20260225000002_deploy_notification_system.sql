@@ -27,18 +27,21 @@ CREATE INDEX IF NOT EXISTS idx_notification_logs_created ON public.notification_
 -- 3. Enable RLS
 ALTER TABLE public.notification_logs ENABLE ROW LEVEL SECURITY;
 
--- 4. RLS Policies
-CREATE POLICY IF NOT EXISTS "notification_logs_select_admin"
+-- 4. RLS Policies (DROP IF EXISTS + CREATE for idempotency; CREATE POLICY has no IF NOT EXISTS in PostgreSQL)
+DROP POLICY IF EXISTS "notification_logs_select_admin" ON public.notification_logs;
+CREATE POLICY "notification_logs_select_admin"
   ON public.notification_logs FOR SELECT
   USING (public.is_business_admin(public.current_profile_id(), (
     SELECT business_id FROM public.appointments WHERE id = appointment_id
   )));
 
-CREATE POLICY IF NOT EXISTS "notification_logs_insert_system"
+DROP POLICY IF EXISTS "notification_logs_insert_system" ON public.notification_logs;
+CREATE POLICY "notification_logs_insert_system"
   ON public.notification_logs FOR INSERT
   WITH CHECK (true); -- Allow system inserts
 
 -- 5. RPC Function: Check if notification was already sent
+DROP FUNCTION IF EXISTS public.was_notification_sent(uuid, text, text);
 CREATE OR REPLACE FUNCTION public.was_notification_sent(
   p_appointment_id uuid,
   p_event_type text,
@@ -60,6 +63,7 @@ END;
 $$;
 
 -- 6. RPC Function: Get business admin emails
+DROP FUNCTION IF EXISTS public.get_business_admin_emails(uuid);
 CREATE OR REPLACE FUNCTION public.get_business_admin_emails(p_business_id uuid)
 RETURNS TABLE(email text, full_name text)
 LANGUAGE plpgsql
@@ -81,6 +85,7 @@ END;
 $$;
 
 -- 7. RPC Function: Get appointment employee email
+DROP FUNCTION IF EXISTS public.get_appointment_employee_email(uuid);
 CREATE OR REPLACE FUNCTION public.get_appointment_employee_email(p_appointment_id uuid)
 RETURNS TABLE(email text, full_name text, employee_id uuid)
 LANGUAGE plpgsql
@@ -102,6 +107,7 @@ END;
 $$;
 
 -- 8. RPC Function: Log notification attempt
+DROP FUNCTION IF EXISTS public.log_notification(uuid, text, text, text, text, text);
 CREATE OR REPLACE FUNCTION public.log_notification(
   p_appointment_id uuid,
   p_event_type text,
