@@ -151,4 +151,3 @@ curl -X POST https://eudwjgdijylsgcnncxeg.supabase.co/functions/v1/send-appointm
 Ak narazíš na problém:
 1. Skontroluj **Logs** v Supabase Dashboard → Edge Functions
 2. Skontroluj **Database** → Logs pre SQL chyby
-3. Over **SMTP config** v admin nastaveniach

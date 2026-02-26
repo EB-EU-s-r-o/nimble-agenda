@@ -52,6 +52,7 @@ export default function CalendarPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [business, setBusiness] = useState<any>(null);
   const [schedules, setSchedules] = useState<Record<string, EmployeeSchedule[]>>({});
+  const [memberships, setMemberships] = useState<{ profile_id: string; role: string }[]>([]);
 
   const [bookingModal, setBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
@@ -99,7 +100,22 @@ export default function CalendarPage() {
         }
       }
     });
+    // Load memberships for admin filtering
+    supabase.from("memberships").select("profile_id, role").eq("business_id", businessId).then(({ data }) => {
+      if (data) setMemberships(data);
+    });
   }, [businessId, loadEvents]);
+
+  // Filter employees based on allow_admin_as_provider setting
+  const filteredEmployees = useCallback(() => {
+    if (business?.allow_admin_as_provider) return employees;
+    return employees.filter((emp: any) => {
+      if (!emp.profile_id) return true;
+      const membership = memberships.find((m) => m.profile_id === emp.profile_id);
+      if (!membership) return true;
+      return membership.role === "employee";
+    });
+  }, [employees, business, memberships]);
 
   const loadAvailableSlots = useCallback(async (slotDate: Date, employeeId: string, serviceId: string) => {
     const service = services.find((s) => s.id === serviceId);
@@ -214,7 +230,7 @@ export default function CalendarPage() {
               <Label>Zamestnanec</Label>
               <Select value={bookForm.employee_id} onValueChange={(v) => setBookForm((f) => ({ ...f, employee_id: v, start_at: "" }))}>
                 <SelectTrigger><SelectValue placeholder="Vyberte zamestnanca" /></SelectTrigger>
-                <SelectContent>{employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.display_name}</SelectItem>)}</SelectContent>
+                <SelectContent>{filteredEmployees().map((e: any) => <SelectItem key={e.id} value={e.id}>{e.display_name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             {availableSlots.length > 0 && (

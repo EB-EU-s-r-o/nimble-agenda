@@ -6,7 +6,20 @@ import { Loader2 } from "lucide-react";
 
 const DIAGNOSTICS_KEY = "diagnostics";
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
-const EXPECTED_PROJECT_REF = "eudwjgdijylsgcnncxeg";
+
+// Derive expected project ref from the URL if possible
+const getExpectedProjectRef = () => {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  if (!url) return "unknown";
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.split('.')[0];
+  } catch {
+    return "invalid-url";
+  }
+};
+
+const EXPECTED_PROJECT_REF = getExpectedProjectRef();
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
 

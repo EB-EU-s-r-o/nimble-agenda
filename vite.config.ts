@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/eudwjgdijylsgcnncxeg\.supabase\.co\/rest\/v1\/.*/i,
+            urlPattern: /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\/.*/i,
             handler: "NetworkFirst",
             options: {
               cacheName: "supabase-api-cache",
@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: "PAPI HAIR DESIGN – Booking",
         short_name: "PHD Booking",
-        description: "Prémiový rezervačný systém – PAPI HAIR DESIGN",
+        description: "Moderný a rýchly rezervačný systém pre PAPI HAIR DESIGN",
         start_url: "/booking",
         display: "standalone",
         orientation: "portrait",
