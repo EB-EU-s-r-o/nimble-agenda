@@ -12,7 +12,24 @@ const bodySchema = z.object({
     customer_name: z.string().min(2).max(200),
     customer_email: z.string().email().max(255),
     customer_phone: z.string().max(30).optional().nullable(),
+    recaptcha_token: z.string().min(1).optional().nullable(),
 });
+const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET ?? "";
+const RECAPTCHA_MIN_SCORE = 0.5;
+async function verifyRecaptcha(token) {
+    const secret = RECAPTCHA_SECRET.trim();
+    if (!secret)
+        return { ok: true, score: 1 };
+    const res = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret, response: token }).toString(),
+    });
+    const data = (await res.json());
+    const score = typeof data.score === "number" ? data.score : 0;
+    const ok = data.success === true && score >= RECAPTCHA_MIN_SCORE;
+    return { ok, score };
+}
 function normalizeEmail(email) {
     const [localRaw, domain] = email.toLowerCase().trim().split("@");
     if (!domain)
@@ -45,7 +62,18 @@ export const createPublicBooking = onRequest({ cors: true, region: "europe-west1
             res.status(400).json({ error: "Neplatné vstupné údaje" });
             return;
         }
-        const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone, } = parsed.data;
+        const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone, recaptcha_token, } = parsed.data;
+        if (RECAPTCHA_SECRET.trim()) {
+            if (!recaptcha_token?.trim()) {
+                res.status(400).json({ error: "Chýba overenie (reCAPTCHA). Obnovte stránku a skúste znova." });
+                return;
+            }
+            const { ok } = await verifyRecaptcha(recaptcha_token);
+            if (!ok) {
+                res.status(400).json({ error: "Overenie zlyhalo. Skúste znova alebo obnovte stránku." });
+                return;
+            }
+        }
         const sanitizedEmail = normalizeEmail(customer_email).slice(0, 255);
         const sanitizedName = customer_name.trim().slice(0, 200);
         const sanitizedPhone = customer_phone ? String(customer_phone).trim().slice(0, 30) : null;

@@ -9,5 +9,6 @@ import { webauthnRegisterChallenge, webauthnRegister } from "./webauthnRegister.
 import { webauthnAuthenticateChallenge, webauthnAuthenticate } from "./webauthnAuthenticate.js";
 import { saveSmtpConfig } from "./saveSmtpConfig.js";
 import { seedDemoAccounts } from "./seedDemoAccounts.js";
+import { ensureSupabaseRole } from "./ensureSupabaseRole.js";
 initializeApp();
-export { createPublicBooking, claimBooking, syncPush, syncPull, sendBookingEmail, sendAppointmentNotification, webauthnRegisterChallenge, webauthnRegister, webauthnAuthenticateChallenge, webauthnAuthenticate, saveSmtpConfig, seedDemoAccounts, };
+export { createPublicBooking, claimBooking, syncPush, syncPull, sendBookingEmail, sendAppointmentNotification, webauthnRegisterChallenge, webauthnRegister, webauthnAuthenticateChallenge, webauthnAuthenticate, saveSmtpConfig, seedDemoAccounts, ensureSupabaseRole, };

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { getFirebaseAuth, getFirebaseFirestore, isFirebaseAuthEnabled } from "@/integrations/firebase/config";
+import { getFirebaseAuth, getFirebaseFirestore, getFirebaseFunctions, isFirebaseAuthEnabled } from "@/integrations/firebase/config";
 import type { User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 
 interface Profile {
   id: string;
@@ -123,6 +124,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       try {
+        // Ensure Supabase accepts Firebase JWT: set custom claim role='authenticated' and refresh token
+        const functions = getFirebaseFunctions();
+        const ensureRole = functions
+          ? httpsCallable<unknown, { ok: boolean }>(functions, "ensureSupabaseRole")
+          : null;
+        if (ensureRole) await ensureRole({}).catch(() => { /* non-blocking; Supabase may still work if claim already set */ });
+        await firebaseUser.getIdToken(true);
+
         const profileRef = doc(firestore, "profiles", firebaseUser.uid);
         const profileSnap = await getDoc(profileRef);
         if (!profileSnap.exists()) {

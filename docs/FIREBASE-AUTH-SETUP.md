@@ -84,16 +84,45 @@ Aplikácia používa `signInWithPopup` a `GoogleAuthProvider` z Firebase JS SDK;
 
 ## 4. Firebase – custom claim `role: 'authenticated'`
 
-Supabase potrebuje v JWT claim **role = 'authenticated'**, aby priradil správnu Postgres rolu a RLS povoľoval prístup k employees/services/appointments. Bez tohto claimu Supabase priradí rolu `anon` a môžeš dostať 401 alebo prázdne dáta. V Firebase to treba nastaviť pre všetkých používateľov.
+Supabase potrebuje v JWT claim **role = 'authenticated'**, aby priradil správnu Postgres rolu a RLS povoľoval prístup k employees/services/appointments. Bez tohto claimu Supabase priradí rolu `anon` a môžeš dostať 401 alebo prázdne dáta.
+
+### Možnosť C: Automaticky v aplikácii (vyžaduje Blaze plán)
+
+Aplikácia pri každom prihlásení zavolá Cloud Function **ensureSupabaseRole**, ktorá nastaví custom claim `role: 'authenticated'`. **Cloud Functions vyžadujú Firebase plán Blaze** (pay-as-you-go). Ak zostaneš na Spark (free), deploy zlyhá s chybou *"must be on the Blaze plan"*.
+
+Ak máš Blaze:
+1. **Nasaď Cloud Functions** (vrátane `ensureSupabaseRole`):
+   ```powershell
+   cd functions
+   npm run build
+   firebase deploy --only functions
+   ```
+2. Nič ďalšie nemusíš robiť – noví aj existujúci používatelia dostanú claim pri najbližšom prihlásení.
+
+### Možnosť D (pre Spark plán): Lokálny skript bez Cloud Functions
+
+Ak nechceš ísť na Blaze, môžeš claim nastaviť **jednorázovo (alebo po prídaní nových používateľov)** lokálnym skriptom s Firebase Admin SDK:
+
+1. **Stiahni service account kľúč:** Firebase Console → tvoj projekt → **Project settings** (ozubené koleso) → **Service accounts** → **Generate new private key** → ulož súbor (napr. `phd-booking-sa.json` do koreňa projektu alebo inam).
+2. **Nastav premennú na skutočnú cestu** k tomuto súboru (nahraď cestu svojou):
+   ```powershell
+   $env:GOOGLE_APPLICATION_CREDENTIALS = "C:\Users\42195\nimble-agenda\phd-booking-sa.json"
+   ```
+   Ak si súbor uložil inde, daj plnú cestu k nemu (bez `C:\cesta\k\...` – to bol len príklad).
+3. **Spusti skript** z priečinka `functions`:
+   ```powershell
+   cd functions
+   node scripts/set-supabase-role-claims.mjs
+   ```
+   Skript nastaví `role: 'authenticated'` všetkým existujúcim používateľom. Pri nových používateľoch ho treba spustiť znova, alebo prejsť na Blaze a nasadiť Cloud Function (Možnosť C).
 
 ### Možnosť A: Blocking function (Firebase Auth s Identity Platform)
 
 Ak máš Identity Platform, môžeš použiť blocking function (napr. `beforeUserCreated` / `beforeUserSignedIn`), ktorá vráti `customClaims: { role: 'authenticated' }`. Dokumentácia: [Firebase Blocking Functions](https://firebase.google.com/docs/auth/extend-with-blocking-functions).
 
-### Možnosť B: Cloud Function (onCreate) + Admin SDK pre existujúcich
+### Možnosť B: Vlastný skript / jednorazovo
 
-1. V Firebase projekte nainštaluj a nasaď Cloud Function, ktorá pri vytvorení používateľa nastaví custom claim (alebo použiť jednorazový skript s Admin SDK).
-2. Pre **existujúcich** používateľov spusti skript s Firebase Admin SDK: `setCustomUserClaims(uid, { role: 'authenticated' })` pre každého používateľa. Návod: [Supabase – Firebase Auth](https://supabase.com/docs/guides/auth/third-party/firebase-auth).
+Pre **existujúcich** používateľov môžeš použiť Možnosť D (lokálny skript v repozitári) alebo vlastný skript s Firebase Admin SDK. Návod: [Supabase – Firebase Auth](https://supabase.com/docs/guides/auth/third-party/firebase-auth).
 
 ## 5. Migrácie v Supabase
 

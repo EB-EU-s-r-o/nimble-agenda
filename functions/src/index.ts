@@ -9,6 +9,7 @@ import { webauthnRegisterChallenge, webauthnRegister } from "./webauthnRegister.
 import { webauthnAuthenticateChallenge, webauthnAuthenticate } from "./webauthnAuthenticate.js";
 import { saveSmtpConfig } from "./saveSmtpConfig.js";
 import { seedDemoAccounts } from "./seedDemoAccounts.js";
+import { ensureSupabaseRole } from "./ensureSupabaseRole.js";
 
 initializeApp();
 
@@ -25,4 +26,5 @@ export {
   webauthnAuthenticate,
   saveSmtpConfig,
   seedDemoAccounts,
+  ensureSupabaseRole,
 };
