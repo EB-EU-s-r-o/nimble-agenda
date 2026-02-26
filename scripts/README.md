@@ -113,6 +113,8 @@ Sets the Supabase publishable key in Vercel.
 3. Configure Vercel token: `.\set-vercel-token-env.ps1`
 4. Test setup: `.\test-deployment-setup.ps1`
 
+**Package manager:** Deploy skripty volajú build cez `npm run build`. Ak v projekte používaš **pnpm**, pred deployom spusti `pnpm run build` manuálne na overenie; v skriptoch môžeš prípadne zmeniť na `pnpm run build`. V jednom clone používaj konzistentne jeden manager – viď [DEVELOPMENT-SETUP.md](../docs/DEVELOPMENT-SETUP.md).
+
 ### Regular Deployment
 1. Make your code changes
 2. Run deployment: `.\deploy-vercel.ps1`
@@ -171,6 +173,7 @@ vercel --prod
 
 ## Related Documentation
 
+- [Development Setup (npm/pnpm, príprava na vývoj)](../docs/DEVELOPMENT-SETUP.md)
 - [Vercel Automated Deployment](../docs/VERCEL-AUTOMATED-DEPLOYMENT.md)
 - [Vercel Diagnostics](../docs/VERCEL-DIAGNOSTICS.md)
 - [Firebase Auth Setup](../docs/FIREBASE-AUTH-SETUP.md)

@@ -25,6 +25,8 @@
 - [Offline podpora](#offline-podpora)
 - [PWA inštalácia](#pwa-inštalácia)
 - [Bezpečnosť](#bezpečnosť)
+- [Package manager (npm / pnpm)](#package-manager-npm--pnpm)
+- [Príprava na nový vývoj](#príprava-na-nový-vývoj-checklist)
 - [Vývoj a testovanie](#vývoj-a-testovanie)
 - [Changelog](#changelog)
 
@@ -68,6 +70,7 @@ React 18 + Vite + TypeScript
 
 - Node.js 18+
 - Git
+- **Package manager:** npm (prednastavený) alebo [pnpm](https://pnpm.io/) – v projekte používaj **iba jeden** (pozri [Package manager](#package-manager-npm--pnpm)).
 
 ### Inštalácia
 
@@ -80,7 +83,7 @@ npm run setup
 .\setup.ps1
 ```
 
-Skript skontroluje Node.js, nainštaluje závislosti a vytvorí `.env` z `.env.example` (ak ešte neexistuje).
+Skript skontroluje Node.js, nainštaluje závislosti cez **npm** a vytvorí `.env` z `.env.example` (ak ešte neexistuje). Ak používaš **pnpm**, po prvom clone alebo po `git pull` spusti ešte `pnpm install` (viď [Package manager](#package-manager-npm--pnpm)).
 
 **Manuálne:**
 
@@ -90,30 +93,54 @@ git clone https://github.com/EB-EU-s-r-o/nimble-agenda.git
 cd nimble-agenda
 
 # 2. (Voliteľne) Nastav Node 18+ cez nvm: nvm use
-# 3. Nainštaluj závislosti
+# 3. Nainštaluj závislosti (použi jeden prístup)
 npm install
+# alebo ak používaš pnpm:
+pnpm install
 
 # 4. Nastav premenné prostredia
 cp .env.example .env   # na Windows: copy .env.example .env
 # Vyplň hodnoty v .env
 
 # 5. Spusti vývojový server
-npm run dev
+npm run dev   # alebo: pnpm run dev
 ```
 
 App bude dostupná na **http://localhost:8080**
 
+### Package manager (npm / pnpm)
+
+Projekt podporuje **npm** aj **pnpm**. Dôležité:
+
+- **Používaj vždy len jeden** package manager v danom clone (nemiešaj `npm install` a `pnpm install`).
+- **Ak spúšťaš príkazy cez pnpm** (`pnpm test`, `pnpm run dev` …), musíš mať závislosti nainštalované cez **pnpm**: spusti `pnpm install`. Inak môže Cursor/VS Code alebo terminál hlásiť, že napr. `vitest` nie je nájdený – pretože binárky sú v pnpm-strome a ten vznikne až po `pnpm install`.
+- **Setup.ps1** automaticky detekuje pnpm (ak je v PATH, použije `pnpm install`, inak `npm install`). Viac: [docs/DEVELOPMENT-SETUP.md](docs/DEVELOPMENT-SETUP.md).
+
 ### Dostupné príkazy
+
+Všetky príkazy môžeš spúšťať cez **npm** alebo **pnpm** (podľa toho, čím si inštaloval závislosti).
 
 | Príkaz | Popis |
 |--------|-------|
-| `npm run dev` | Spustí vývojový server (Vite HMR) |
-| `npm run build` | Produkčný build |
-| `npm run build:dev` | Build v dev móde (so zdrojovými mapami) |
-| `npm run preview` | Náhľad produkčného buildu lokálne |
-| `npm run lint` | ESLint kontrola kódu |
-| `npm run test` | Spusti všetky testy (Vitest) |
-| `npm run test:watch` | Testy v sledovacom móde |
+| `npm run dev` / `pnpm dev` | Spustí vývojový server (Vite HMR) |
+| `npm run build` / `pnpm build` | Produkčný build |
+| `npm run build:dev` / `pnpm build:dev` | Build v dev móde (so zdrojovými mapami) |
+| `npm run preview` / `pnpm preview` | Náhľad produkčného buildu lokálne |
+| `npm run lint` / `pnpm lint` | ESLint kontrola kódu |
+| `npm run test` / `pnpm test` | Spusti všetky testy (Vitest) |
+| `npm run test:watch` / `pnpm test:watch` | Testy v sledovacom móde |
+
+### Príprava na nový vývoj (checklist)
+
+Keď sa vrátiš k projektu alebo ťaháš najnovšie zmeny:
+
+1. **Stiahnuť zmeny:** `git pull origin main`
+2. **Závislosti:** `npm run setup` (alebo `npm install` + manuálne `.env`), pri pnpm: `pnpm install`
+3. **Premenné:** Skontrolovať `.env` (Supabase URL a anon key)
+4. **Overiť:** `npm run lint` / `pnpm lint`, `npm run test` / `pnpm test`, `npm run build` / `pnpm build`
+5. **Štart:** `npm run dev` / `pnpm dev` → http://localhost:8080
+
+Podrobný návod: [docs/DEVELOPMENT-SETUP.md](docs/DEVELOPMENT-SETUP.md).
 
 ---
 
@@ -269,6 +296,7 @@ nimble-agenda/
 │   ├── functions/                 # Edge Functions (Deno)
 │   └── migrations/                # SQL migrácie (verzionované)
 ├── docs/
+│   ├── DEVELOPMENT-SETUP.md       # Príprava prostredia, npm/pnpm, troubleshooting
 │   ├── seed-demo.sql              # Demo seed dáta pre lokálny vývoj
 │   └── ARCHITECTURE.md            # Detailná technická dokumentácia
 ├── .env.example                   # Vzor premenných prostredia
@@ -429,12 +457,14 @@ Aplikácia je plnohodnotná Progressive Web App.
 ### Testy
 
 ```sh
-npm run test         # jednorazový beh
+npm run test         # jednorazový beh  (pri pnpm: pnpm test)
 npm run test:watch   # sledovací mód
 npm run lint         # kontrola kódu
 ```
 
 Testy: `src/test/` | Framework: **Vitest** + **@testing-library/react** + **jsdom**
+
+Ak pri **pnpm test** IDE hlási, že Vitest nie je nájdený, spusti v koreni projektu `pnpm install` (závislosti musia byť nainštalované cez pnpm). Viď [Package manager](#package-manager-npm--pnpm) a [docs/DEVELOPMENT-SETUP.md](docs/DEVELOPMENT-SETUP.md).
 
 ### Vývojové nástroje
 
