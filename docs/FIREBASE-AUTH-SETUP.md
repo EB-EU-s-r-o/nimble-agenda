@@ -70,19 +70,21 @@ Aplikácia používa `signInWithPopup` a `GoogleAuthProvider` z Firebase JS SDK;
 
 ## 3. Supabase – Third-Party Auth (Firebase)
 
-1. **Dashboard:** Supabase → tvoj projekt → **Authentication** → **Providers** alebo **Third-Party Auth**.
-2. Pridaj integráciu **Firebase** a zadaj **Firebase Project ID** (rovnaké ako `VITE_FIREBASE_PROJECT_ID`).
-3. V `supabase/config.toml` (ak pushuješ config cez CLI) máš:
+**Ak po prihlásení cez Google dostávaš 401 (Unauthorized) z Supabase** (employees, services, appointments), Supabase neprijíma Firebase JWT. Urob:
+
+1. **Dashboard:** Supabase → tvoj projekt → [Authentication → Third-Party Auth](https://supabase.com/dashboard/project/hrkwqdvfeudxkqttpgls/auth/third-party).
+2. Pridaj integráciu **Firebase** a zadaj **Firebase Project ID** = `phd-booking` (rovnaké ako `VITE_FIREBASE_PROJECT_ID`). Ulož.
+3. V `supabase/config.toml` (už nastavené) máš:
    ```toml
    [auth.third_party.firebase]
    enabled = true
    project_id = "tvoj-firebase-project-id"
    ```
-   Nahraď `your-firebase-project-id` skutočným Firebase Project ID.
+   Lokálne je už `project_id = "phd-booking"`. Po úprave v Dashboarde by mal Supabase prijímať Firebase JWT a 401 by mal zmiznúť (ak majú používatelia claim z kroku 4).
 
 ## 4. Firebase – custom claim `role: 'authenticated'`
 
-Supabase potrebuje v JWT claim **role = 'authenticated'**, aby priradil správnu Postgres rolu. V Firebase to treba nastaviť pre všetkých používateľov.
+Supabase potrebuje v JWT claim **role = 'authenticated'**, aby priradil správnu Postgres rolu a RLS povoľoval prístup k employees/services/appointments. Bez tohto claimu Supabase priradí rolu `anon` a môžeš dostať 401 alebo prázdne dáta. V Firebase to treba nastaviť pre všetkých používateľov.
 
 ### Možnosť A: Blocking function (Firebase Auth s Identity Platform)
 

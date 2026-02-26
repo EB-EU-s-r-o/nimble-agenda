@@ -5,10 +5,10 @@ project_id = "hrkwqdvfeudxkqttpgls"
 site_url = "https://booking.papihairdesign.sk"
 additional_redirect_urls = ["https://booking.papihairdesign.sk/**"]
 
-# Firebase ako Third-Party Auth (doplň project_id z Firebase Console)
+# Firebase ako Third-Party Auth – musí sedieť s Firebase projektom (phd-booking)
 [auth.third_party.firebase]
 enabled = true
-project_id = "your-firebase-project-id"
+project_id = "phd-booking"
 
 [functions.create-public-booking]
 verify_jwt = false
