@@ -7,7 +7,7 @@ Všetko, čo sa dá nastaviť z príkazového riadka (PowerShell / CMD), v logic
 ## Predpoklady
 
 - **Node.js 18+** – `node -v`
-- **Package manager:** npm alebo pnpm (v projekte používaj iba jeden)
+- **Package manager:** npm (projekt používa len npm a `package-lock.json`)
 - **PowerShell** (Windows) – pre skripty `.ps1`
 
 Voliteľne nainštalované globálne (alebo cez `npx`):
@@ -29,7 +29,6 @@ cd c:\Users\42195\nimble-agenda
 # Príprava (Node check + install + .env z .env.example)
 npm run setup
 # alebo:  .\setup.ps1
-# pri pnpm:  pnpm install   a manuálne skopíruj .env.example → .env
 ```
 
 ### 1.2 Vyplniť .env
@@ -109,7 +108,7 @@ npx supabase config push
 Všetky funkcie naraz:
 
 ```powershell
-pnpm supabase:deploy-functions
+npm run supabase:deploy-functions
 # alebo:  npx supabase functions deploy
 ```
 
@@ -173,14 +172,14 @@ firebase use default
 ### 3.2 Deploy Hosting (SPA) – funguje na Spark (zadarmo)
 
 ```powershell
-pnpm run deploy:firebase
+npm run deploy:firebase
 # alebo:  npm run build ; firebase deploy --only hosting
 ```
 
 ### 3.3 Deploy Hosting + Firestore (rules + indexy) – Spark
 
 ```powershell
-pnpm run deploy:firebase:first
+npm run deploy:firebase:first
 # alebo:  npm run build ; firebase deploy --only hosting,firestore
 ```
 
@@ -248,11 +247,11 @@ Skript: npm install, Supabase db push, Firebase migrácie cez psql (ak je `SUPAB
 ## 6. Overenie pred deployom
 
 ```powershell
-pnpm run lint
-pnpm run test
-pnpm run build
-pnpm run lockin:check
-# voliteľne:  pnpm run budget
+npm run lint
+npm run test
+npm run build
+npm run lockin:check
+# voliteľne:  npm run budget
 ```
 
 ---
@@ -264,10 +263,10 @@ pnpm run lockin:check
 | **Prvá príprava** | `npm run setup` → upraviť `.env` |
 | **Supabase migrácie** | `npx supabase login` → `.\supabase-db-push.ps1` (prípadne `-ProjectRef`) |
 | **Supabase auth URL** | Upraviť `supabase/config.toml` → `.\supabase-push-auth-config.ps1` |
-| **Supabase Edge Functions** | `pnpm supabase:deploy-functions` alebo `npx supabase functions deploy` |
+| **Supabase Edge Functions** | `npm run supabase:deploy-functions` alebo `npx supabase functions deploy` |
 | **Supabase secrets** | `npx supabase secrets set ...` |
-| **Firebase hosting** | `pnpm run deploy:firebase` |
-| **Firebase hosting + Firestore** | `pnpm run deploy:firebase:first` |
+| **Firebase hosting** | `npm run deploy:firebase` |
+| **Firebase hosting + Firestore** | `npm run deploy:firebase:first` |
 | **Firebase Functions** | Blaze → `npm run build` → `firebase deploy --only functions` |
 | **Vercel env** | `.\scripts\set-vercel-supabase-env.ps1` / `set-vercel-firebase-env.ps1` |
 | **Vercel deploy** | `.\scripts\deploy-vercel.ps1` alebo `vercel --prod` |
@@ -280,3 +279,7 @@ pnpm run lockin:check
 - **Project ref:** V skriptoch `supabase-db-push.ps1` a `supabase-push-auth-config.ps1` je default `hrkwqdvfeudxkqttpgls`. Ak používaš iný projekt, použi parameter `-ProjectRef <REF>` alebo uprav premennú v skripte.
 - **Supabase vs Firebase backend:** Ak používaš len Supabase (bez Blaze), nechaj `VITE_FIREBASE_FUNCTIONS_URL` prázdnu; rezervácie pôjdu cez Supabase Edge Functions. Ak používaš Firebase Functions, nastav URL a potrebuješ Blaze.
 - **Detaily:** Auth doména – [docs/AUTH-BOOKING-DOMAIN.md](AUTH-BOOKING-DOMAIN.md). Migrácie – [MIGRATIONS-TERMINAL.md](MIGRATIONS-TERMINAL.md). Firebase – [MIGRATION-FIREBASE.md](MIGRATION-FIREBASE.md). Vercel – [scripts/README.md](../scripts/README.md).
+
+### Cursor MCP (Supabase)
+
+V `.cursor/mcp.json` je nastavený Supabase MCP server pre projekt **hrkwqdvfeudxkqttpgls**. Po zmene tohto súboru je potrebné **načítať novú konfiguráciu**: Command Palette (Ctrl+Shift+P) → **Developer: Reload Window**. Alternatíva: reštart Cursoru.

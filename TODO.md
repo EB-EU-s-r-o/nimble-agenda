@@ -75,6 +75,7 @@ URL: **https://console.firebase.google.com/** → projekt **phd-booking**
 
 ## 6. Jednorazové / overenie
 
+- [x] **Package manager:** projekt používa len npm (`package-lock.json`); závislosti bez známych zraniteľností (`npm audit`).
 - [ ] **.firebaserc:** projekt je nastavený na `phd-booking` – ak používaš iný projekt, zmeň
 - [ ] **Firebase CLI:** `npm install -g firebase-tools` a `firebase login` (pre deploy)
 - [ ] **Supabase CLI (voliteľné):** ak linkuješ projekt alebo pushuješ auth config – `supabase login`, `supabase link` (docs/AUTH-BOOKING-DOMAIN.md)
