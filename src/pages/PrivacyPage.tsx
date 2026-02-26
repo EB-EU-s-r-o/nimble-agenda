@@ -13,7 +13,7 @@ export default function PrivacyPage() {
           <CardContent className="prose prose-sm dark:prose-invert max-w-none space-y-4">
             <section>
               <h2 className="text-lg font-semibold mt-4">1. Správca údajov</h2>
-              <p>Správcom osobných údajov je PAPI Hair Design (ďalej „my“). Kontakt: prostredníctvom webu booking.papihairdesign.sk.</p>
+              <p>Správcom osobných údajov je PAPI Hair Design (ďalej „my“). Kontakt: prostredníctvom webu booking.papihairdesign.sk alebo e-mailom privacy@booking.papihairdesign.sk.</p>
             </section>
             <section>
               <h2 className="text-lg font-semibold mt-4">2. Aké údaje zbierame</h2>
@@ -24,8 +24,8 @@ export default function PrivacyPage() {
               <p>Údaje používame na poskytovanie rezervačnej služby, komunikáciu a v súlade so zákonnou povinnosťou. Spracovanie pre rezervácie je založené na plnení zmluvy alebo oprávnenom záujme; marketing len so súhlasom.</p>
             </section>
             <section>
-              <h2 className="text-lg font-semibold mt-4">4. Súbory cookie</h2>
-              <p>Používame nevyhnutné cookies na fungovanie stránky a prihlásenia. Voliteľne analytické a marketingové cookies podľa vášho výberu v lište súhlasu s cookies.</p>
+              <h2 className="text-lg font-semibold mt-4">4. Súbory cookie a audit súhlasu</h2>
+              <p>Používame nevyhnutné cookies na fungovanie stránky a prihlásenia. Voliteľne analytické a marketingové cookies podľa vášho výberu v lište súhlasu s cookies. Zmeny súhlasu ukladajú aj minimálny server-side auditný záznam (kategórie, akcia, čas, hash IP), bez ukladania raw IP adresy.</p>
             </section>
             <section>
               <h2 className="text-lg font-semibold mt-4">5. Zdieľanie a spracovatelia</h2>
@@ -36,8 +36,9 @@ export default function PrivacyPage() {
               <p>Údaje uchovávame po dobu potrebnú na plnenie zmluvy a zákonné povinnosti; po tej dobe sú anonymizované alebo vymazané.</p>
             </section>
             <section>
-              <h2 className="text-lg font-semibold mt-4">7. Vaše práva</h2>
-              <p>Máte právo na prístup, opravu, vymazanie, obmedzenie spracovania a sťažnosť u dozorného úradu. Kontaktujte nás e-mailom alebo cez stránku.</p>
+              <h2 className="text-lg font-semibold mt-4">7. Vaše práva (GDPR minimum runtime)</h2>
+              <p>Máte právo na prístup, opravu, vymazanie, obmedzenie spracovania a sťažnosť u dozorného úradu. Aplikačne sú dostupné minimum endpointy <code>/gdpr/status</code>, <code>/gdpr/export</code> a <code>/gdpr/delete</code>.</p>
+              <p>Export a delete fungujú ako request/ack flow (accepted alebo pending review), nie ako okamžitý synchronný export alebo okamžité deštruktívne vymazanie.</p>
             </section>
             <section>
               <h2 className="text-lg font-semibold mt-4">8. Zmeny</h2>

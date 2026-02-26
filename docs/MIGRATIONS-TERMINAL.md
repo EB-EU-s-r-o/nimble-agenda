@@ -86,7 +86,7 @@ psql "postgresql://postgres@db.hrkwqdvfeudxkqttpgls.supabase.co:5432/postgres" -
 
 ## Overenie po spustení
 
-1. Otvor `/diagnostics?key=diagnostics` – DB a RPC by mali byť OK.
+1. V development/admin prostredí otvor `/diagnostics` – DB a RPC by mali byť OK.
 2. Otvor `/booking` – služby sa zobrazia.
 
 ---

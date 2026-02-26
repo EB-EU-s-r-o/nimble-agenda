@@ -9,6 +9,8 @@ export interface CalendarAppointment {
   service_name: string;
   employee_name: string;
   customer_name: string;
+  employee_id?: string;
+  type?: "reservation" | "blocked";
   notes?: string | null;
 }
 

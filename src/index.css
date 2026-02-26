@@ -143,3 +143,38 @@
   .min-touch { min-height: 44px; min-width: 44px; }
 }
 
+
+@layer components {
+  .cal-toolbar-btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 py-2 text-xs font-medium;
+  }
+
+  .cal-non-working-overlay {
+    background-color: rgba(148, 163, 184, 0.18);
+  }
+
+  .cal-break-overlay {
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgba(148, 163, 184, 0.28) 0px,
+      rgba(148, 163, 184, 0.28) 6px,
+      rgba(148, 163, 184, 0.16) 6px,
+      rgba(148, 163, 184, 0.16) 12px
+    );
+  }
+
+  .cal-event--reservation {
+    @apply bg-background/90 shadow-sm;
+  }
+
+  .cal-event--blocked {
+    @apply bg-slate-900/10;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgba(71, 85, 105, 0.24) 0px,
+      rgba(71, 85, 105, 0.24) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+}

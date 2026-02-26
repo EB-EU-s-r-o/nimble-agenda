@@ -40,7 +40,7 @@
 |-----------|-------|
 | PostgreSQL | Hlavná databáza s RLS |
 | Supabase Auth | Autentifikácia (email, OAuth, Passkeys) |
-| Edge Functions | 8 Deno serverless functions |
+| Edge Functions | 10 Deno serverless functions |
 | Supabase Storage | (pripravené, zatiaľ nevyužité) |
 
 ### Build & Dev nástroje
@@ -236,6 +236,18 @@ Tok:
 
 - SMTP credentials v Supabase secrets (nie v kóde)
 - HTML e-mail s detailmi rezervácie
+
+### `consent-event`
+
+- Public endpoint pre server-side audit consent zmien
+- Validuje `subject_type`, `action`, `categories`, `source`
+- Ukladá hash IP (`ip_hash`), nikdy nie raw IP
+
+### `gdpr` (`/gdpr/status`, `/gdpr/export`, `/gdpr/delete`)
+
+- `status`: vracia minimum runtime contract (available actions, mode, request history pre auth user)
+- `export`: vytvorí GDPR request a vráti `accepted` (asynchrónny follow-up flow)
+- `delete`: vytvorí GDPR request a vráti `pending_review` (bez okamžitého deštruktívneho delete)
 
 ---
 

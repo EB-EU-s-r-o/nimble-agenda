@@ -104,7 +104,7 @@ const App = () => {
               <Route
                 path="/admin/calendar"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><CalendarPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -120,7 +120,7 @@ const App = () => {
               <Route
                 path="/admin/employees"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><EmployeesPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -128,7 +128,7 @@ const App = () => {
               <Route
                 path="/admin/services"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><ServicesPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -136,7 +136,7 @@ const App = () => {
               <Route
                 path="/admin/customers"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><CustomersPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -144,7 +144,7 @@ const App = () => {
               <Route
                 path="/admin/settings"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["owner", "admin"]}>
                     <AdminLayout><SettingsPage /></AdminLayout>
                   </ProtectedRoute>
                 }
@@ -152,7 +152,7 @@ const App = () => {
               <Route
                 path="/admin/my"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={["employee"]}>
                     <AdminLayout><MySchedulePage /></AdminLayout>
                   </ProtectedRoute>
                 }
