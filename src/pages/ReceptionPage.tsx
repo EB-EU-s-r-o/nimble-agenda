@@ -187,7 +187,7 @@ export default function ReceptionPage() {
   const currentDate = new Date(`${day}T12:00:00`);
 
   return (
-    <div className="min-h-screen bg-background p-4 max-w-2xl mx-auto space-y-4">
+    <div className="min-h-screen bg-background p-4 max-w-2xl mx-auto space-y-4" data-testid="reception-page">
       <OfflineBanner onConflictsClick={() => setShowConflicts(true)} />
 
       {/* Date navigation */}

@@ -74,6 +74,16 @@ export default {
           DEFAULT: "hsl(var(--gold))",
           foreground: "hsl(var(--gold-foreground))",
         },
+        calendar: {
+          pending: "hsl(var(--calendar-pending))",
+          "pending-fg": "hsl(var(--calendar-pending-fg))",
+          confirmed: "hsl(var(--calendar-confirmed))",
+          "confirmed-fg": "hsl(var(--calendar-confirmed-fg))",
+          cancelled: "hsl(var(--calendar-cancelled))",
+          "cancelled-fg": "hsl(var(--calendar-cancelled-fg))",
+          completed: "hsl(var(--calendar-completed))",
+          "completed-fg": "hsl(var(--calendar-completed-fg))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

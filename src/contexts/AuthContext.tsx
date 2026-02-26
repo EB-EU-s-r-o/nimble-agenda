@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import { getFirebaseAuth, isFirebaseAuthEnabled } from "@/integrations/firebase/config";
+import { getFirebaseAuth, getFirebaseFirestore, isFirebaseAuthEnabled } from "@/integrations/firebase/config";
 import type { User as FirebaseUser } from "firebase/auth";
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 interface Profile {
   id: string;
@@ -19,9 +18,16 @@ interface Membership {
   role: "owner" | "admin" | "employee" | "customer";
 }
 
+/** Normalized user for components that expect .id (Firebase uses .uid) */
+export interface AuthUser {
+  id: string;
+  email: string | null;
+  uid: string;
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
+  session: null;
   profile: Profile | null;
   memberships: Membership[];
   loading: boolean;
@@ -41,143 +47,114 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-async function fetchProfileViaRPC(): Promise<{ profile: Profile | null; memberships: Membership[] }> {
-  const { data: profileRows } = await (supabase.rpc as any)("get_my_profile");
-  const { data: membershipRows } = await (supabase.rpc as any)("get_my_memberships");
-  const profile = Array.isArray(profileRows) && profileRows[0] ? profileRows[0] : null;
-  const memberships = Array.isArray(membershipRows) ? membershipRows : [];
-  return { profile, memberships };
+function toAuthUser(firebaseUser: FirebaseUser): AuthUser {
+  return { id: firebaseUser.uid, email: firebaseUser.email ?? null, uid: firebaseUser.uid };
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (profileData) setProfile(profileData as Profile);
-
-    const { data: membershipData } = await supabase
-      .from("memberships")
-      .select("*")
-      .eq("profile_id", userId);
-
-    if (membershipData) setMemberships(membershipData as Membership[]);
+  const refreshProfile = useCallback(async () => {
+    const auth = getFirebaseAuth();
+    const firestore = getFirebaseFirestore();
+    if (!auth?.currentUser || !firestore) return;
+    const uid = auth.currentUser.uid;
+    const profileRef = doc(firestore, "profiles", uid);
+    const profileSnap = await getDoc(profileRef);
+    if (profileSnap.exists()) {
+      const d = profileSnap.data();
+      setProfile({
+        id: uid,
+        full_name: d.full_name ?? null,
+        email: d.email ?? null,
+        phone: d.phone ?? null,
+        avatar_url: d.avatar_url ?? null,
+      });
+    } else {
+      setProfile({
+        id: uid,
+        full_name: auth.currentUser.displayName ?? null,
+        email: auth.currentUser.email ?? null,
+        phone: null,
+        avatar_url: null,
+      });
+    }
+    const membershipsSnap = await getDocs(
+      query(collection(firestore, "memberships"), where("profile_id", "==", uid))
+    );
+    setMemberships(
+      membershipsSnap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          business_id: data.business_id,
+          profile_id: data.profile_id,
+          role: data.role,
+        };
+      })
+    );
   }, []);
 
-  const refreshProfile = useCallback(async () => {
-    if (isFirebaseAuthEnabled()) {
-      const { profile: p, memberships: m } = await fetchProfileViaRPC();
-      setProfile(p);
-      setMemberships(m ?? []);
+  useEffect(() => {
+    if (!isFirebaseAuthEnabled()) {
+      setLoading(false);
       return;
     }
-    if (user) await fetchProfile(user.id);
-  }, [user, fetchProfile]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (sessionStorage.getItem("auth_session_tab_only") === "true") {
-        if (!isFirebaseAuthEnabled()) supabase.auth.signOut();
-        sessionStorage.removeItem("auth_session_tab_only");
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
-
-  const firebaseEnabled = isFirebaseAuthEnabled();
-
-  useEffect(() => {
-    if (firebaseEnabled) {
-      const auth = getFirebaseAuth();
-      if (!auth) {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+    const unsub = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
+      if (!firebaseUser) {
+        setUser(null);
+        setProfile(null);
+        setMemberships([]);
         setLoading(false);
         return;
       }
-      const unsub = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
-        if (!firebaseUser) {
-          setUser(null);
-          setSession(null);
-          setProfile(null);
-          setMemberships([]);
-          setLoading(false);
-          return;
-        }
-        try {
-          await (supabase.rpc as any)("ensure_my_firebase_profile", {
-            p_email: firebaseUser.email ?? undefined,
-            p_full_name: firebaseUser.displayName ?? undefined,
-          });
-          const { profile: p, memberships: m } = await fetchProfileViaRPC();
-          setProfile(p);
-          setMemberships(m ?? []);
-          setUser({
-            id: p?.id ?? firebaseUser.uid,
-            email: p?.email ?? firebaseUser.email ?? null,
-            app_metadata: {},
-            user_metadata: {},
-            aud: "authenticated",
-            created_at: "",
-          } as User);
-          setSession(null);
-        } catch {
-          setUser(null);
-          setProfile(null);
-          setMemberships([]);
-        }
+      setUser(toAuthUser(firebaseUser));
+      const firestore = getFirebaseFirestore();
+      if (!firestore) {
         setLoading(false);
-      });
-      return () => unsub();
-    }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchProfile(session.user.id), 0);
-        } else {
-          setProfile(null);
-          setMemberships([]);
-        }
-        setLoading(false);
+        return;
       }
-    );
-
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) fetchProfile(s.user.id);
+      try {
+        const profileRef = doc(firestore, "profiles", firebaseUser.uid);
+        const profileSnap = await getDoc(profileRef);
+        if (!profileSnap.exists()) {
+          await setDoc(profileRef, {
+            email: firebaseUser.email ?? null,
+            full_name: firebaseUser.displayName ?? null,
+            phone: null,
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+        await refreshProfile();
+      } catch {
+        setProfile(null);
+        setMemberships([]);
+      }
       setLoading(false);
     });
-
-    return () => subscription.unsubscribe();
-  }, [firebaseEnabled, fetchProfile]);
+    return () => unsub();
+  }, [refreshProfile]);
 
   const signOut = useCallback(async () => {
-    if (firebaseEnabled) {
-      const auth = getFirebaseAuth();
-      await auth?.signOut();
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setMemberships([]);
-    } else {
-      await supabase.auth.signOut();
-    }
-  }, [firebaseEnabled]);
+    const auth = getFirebaseAuth();
+    await auth?.signOut();
+    setUser(null);
+    setProfile(null);
+    setMemberships([]);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, memberships, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session: null, profile, memberships, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

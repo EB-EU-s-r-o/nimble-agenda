@@ -18,7 +18,20 @@ export default function SettingsPage() {
   const [business, setBusiness] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", phone: "" });
-  const [smtpForm, setSmtpForm] = useState({ host: "", port: "", user: "", from: "", pass: "" });
+  // Predvolená SMTP pre Papi Hair Design (Websupport) – odosielateľ aj prijemca: booking@papihairdesign.sk
+  const DEFAULT_SMTP = {
+    host: "smtp.m1.websupport.sk",
+    port: "465",
+    user: "booking@papihairdesign.sk",
+    from: "booking@papihairdesign.sk",
+  };
+  const [smtpForm, setSmtpForm] = useState({
+    host: DEFAULT_SMTP.host,
+    port: DEFAULT_SMTP.port,
+    user: DEFAULT_SMTP.user,
+    from: DEFAULT_SMTP.from,
+    pass: "",
+  });
   const [smtpHasPassword, setSmtpHasPassword] = useState(false);
 
   useEffect(() => {
@@ -32,10 +45,10 @@ export default function SettingsPage() {
         setBusiness(data);
         const smtp = (data as any).smtp_config as any ?? {};
         setSmtpForm({
-          host: smtp.host ?? "",
-          port: smtp.port ?? "",
-          user: smtp.user ?? "",
-          from: smtp.from ?? "",
+          host: (smtp.host ?? "").trim() || DEFAULT_SMTP.host,
+          port: String(smtp.port ?? "").trim() || DEFAULT_SMTP.port,
+          user: (smtp.user ?? "").trim() || DEFAULT_SMTP.user,
+          from: (smtp.from ?? "").trim() || DEFAULT_SMTP.from,
           pass: "", // Never load actual password to client
         });
         setSmtpHasPassword(!!(smtp.pass));

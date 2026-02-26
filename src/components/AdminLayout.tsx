@@ -139,7 +139,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-[100dvh] flex w-full max-w-full">
+      <div className="min-h-[100dvh] flex w-full max-w-full" data-testid="admin-layout">
         <AdminSidebar />
         <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
           <header className="min-h-[44px] h-12 flex items-center border-b border-border px-4 safe-x bg-background sticky top-0 z-10 pt-[env(safe-area-inset-top)]">

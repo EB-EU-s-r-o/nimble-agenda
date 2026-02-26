@@ -4,7 +4,8 @@ import { format, parse, startOfWeek, getDay, parseISO, format as fmtDate } from 
 import { sk } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "@/styles/big-calendar-overrides.css";
-import { supabase } from "@/integrations/supabase/client";
+import { getFirebaseFirestore } from "@/integrations/firebase/config";
+import { collection, doc, getDoc, getDocs, query, where, orderBy, updateDoc } from "firebase/firestore";
 import { useBusiness } from "@/hooks/useBusiness";
 import { useAuth } from "@/contexts/AuthContext";
 import { BUSINESS_TZ } from "@/lib/timezone";
@@ -71,30 +72,26 @@ export default function MySchedulePage() {
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // Find my employee record
+  // Find my employee record from Firestore
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("employees")
-      .select("id")
-      .eq("business_id", businessId)
-      .eq("profile_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.id) {
-          setEmployeeId(data.id);
-        } else {
-          supabase
-            .from("employees")
-            .select("id")
-            .eq("business_id", businessId)
-            .limit(1)
-            .maybeSingle()
-            .then(({ data: emp }) => {
-              setEmployeeId(emp?.id ?? "demo-employee-001");
-            });
-        }
-      });
+    const firestore = getFirebaseFirestore();
+    if (!firestore) return;
+    (async () => {
+      const q = query(
+        collection(firestore, "employees"),
+        where("business_id", "==", businessId),
+        where("profile_id", "==", user!.id)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        setEmployeeId(snap.docs[0].id);
+      } else {
+        const fallback = query(collection(firestore, "employees"), where("business_id", "==", businessId));
+        const fallbackSnap = await getDocs(fallback);
+        setEmployeeId(fallbackSnap.empty ? "demo-employee-001" : fallbackSnap.docs[0].id);
+      }
+    })();
   }, [user, businessId]);
 
   /**
@@ -111,61 +108,50 @@ export default function MySchedulePage() {
   const loadEvents = useCallback(async () => {
     if (!employeeId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("appointments")
-      .select("*, customers(full_name, phone), services(name_sk), employees(display_name)")
-      .eq("business_id", businessId)
-      .eq("employee_id", employeeId)
-      .order("start_at");
-    if (data) {
-      setEvents(
-        data.map((a) => {
-          // Parse ISO as UTC first
-          const startUtc = parseISO(a.start_at);
-          const endUtc = parseISO(a.end_at);
-          
-          // Get time in business timezone using Intl
-          const startParts = new Intl.DateTimeFormat('en-US', {
-            timeZone: BUSINESS_TZ,
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: false,
-          }).formatToParts(startUtc);
-          
-          const endParts = new Intl.DateTimeFormat('en-US', {
-            timeZone: BUSINESS_TZ,
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: false,
-          }).formatToParts(endUtc);
-          
-          const startHour = Number.parseInt(startParts.find(p => p.type === 'hour')?.value ?? '0', 10);
-          const startMin = Number.parseInt(startParts.find(p => p.type === 'minute')?.value ?? '0', 10);
-          const endHour = Number.parseInt(endParts.find(p => p.type === 'hour')?.value ?? '0', 10);
-          const endMin = Number.parseInt(endParts.find(p => p.type === 'minute')?.value ?? '0', 10);
-          
-          // Create Date with correct local time components for react-big-calendar
-          const startLocal = new Date(startUtc);
-          startLocal.setHours(startHour, startMin, 0, 0);
-          
-          const endLocal = new Date(endUtc);
-          endLocal.setHours(endHour, endMin, 0, 0);
-          
-          // Safe fallbacks - NEVER show "?" or "–"
-          const customerName = safeString(a.customers?.full_name, "Neznámy klient");
-          const serviceName = safeString(a.services?.name_sk, "Bez názvu služby");
-          
-          return {
-            id: a.id,
-            title: `${customerName} – ${serviceName}`,
-            start: startLocal,
-            end: endLocal,
-            status: a.status,
-            resource: a,
-          };
-        })
-      );
+    const firestore = getFirebaseFirestore();
+    if (!firestore) {
+      setLoading(false);
+      return;
     }
+    const apptSnap = await getDocs(
+      query(
+        collection(firestore, "appointments"),
+        where("business_id", "==", businessId),
+        where("employee_id", "==", employeeId),
+        orderBy("start_at")
+      )
+    );
+    const eventsList: CalEvent[] = [];
+    for (const d of apptSnap.docs) {
+      const a = d.data();
+      const [custSnap, svcSnap] = await Promise.all([
+        getDoc(doc(firestore, "customers", a.customer_id)),
+        getDoc(doc(firestore, "services", a.service_id)),
+      ]);
+      const startUtc = parseISO(a.start_at);
+      const endUtc = parseISO(a.end_at);
+      const startParts = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TZ, hour: "numeric", minute: "numeric", hour12: false }).formatToParts(startUtc);
+      const endParts = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TZ, hour: "numeric", minute: "numeric", hour12: false }).formatToParts(endUtc);
+      const startHour = Number.parseInt(startParts.find((p) => p.type === "hour")?.value ?? "0", 10);
+      const startMin = Number.parseInt(startParts.find((p) => p.type === "minute")?.value ?? "0", 10);
+      const endHour = Number.parseInt(endParts.find((p) => p.type === "hour")?.value ?? "0", 10);
+      const endMin = Number.parseInt(endParts.find((p) => p.type === "minute")?.value ?? "0", 10);
+      const startLocal = new Date(startUtc);
+      startLocal.setHours(startHour, startMin, 0, 0);
+      const endLocal = new Date(endUtc);
+      endLocal.setHours(endHour, endMin, 0, 0);
+      const customerName = safeString(custSnap.data()?.full_name, "Neznámy klient");
+      const serviceName = safeString(svcSnap.data()?.name_sk, "Bez názvu služby");
+      eventsList.push({
+        id: d.id,
+        title: `${customerName} – ${serviceName}`,
+        start: startLocal,
+        end: endLocal,
+        status: a.status,
+        resource: { ...a, id: d.id },
+      });
+    }
+    setEvents(eventsList);
     setLoading(false);
   }, [businessId, employeeId]);
 
@@ -181,18 +167,21 @@ export default function MySchedulePage() {
   const handleMarkCompleted = async () => {
     if (!selectedEvent) return;
     setUpdatingStatus(true);
-    const { error } = await supabase
-      .from("appointments")
-      .update({ status: "completed" as const })
-      .eq("id", selectedEvent.id);
-    setUpdatingStatus(false);
-    if (error) {
+    const firestore = getFirebaseFirestore();
+    if (!firestore) {
+      setUpdatingStatus(false);
       toast.error("Chyba pri aktualizácii");
       return;
     }
-    toast.success("Rezervácia dokončená");
-    setDetailModal(false);
-    loadEvents();
+    try {
+      await updateDoc(doc(firestore, "appointments", selectedEvent.id), { status: "completed", updated_at: new Date().toISOString() });
+      toast.success("Rezervácia dokončená");
+      setDetailModal(false);
+      loadEvents();
+    } catch {
+      toast.error("Chyba pri aktualizácii");
+    }
+    setUpdatingStatus(false);
   };
 
   if (!employeeId && !loading) {

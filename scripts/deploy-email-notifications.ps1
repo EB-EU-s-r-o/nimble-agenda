@@ -15,7 +15,7 @@ Write-Host "✅ Supabase CLI found: $supabaseVersion" -ForegroundColor Green
 
 # Check if linked
 Write-Host "`n📋 Checking Supabase project link..." -ForegroundColor Cyan
-$projectRef = "eudwjgdijylsgcnncxeg"
+$projectRef = "hrkwqdvfeudxkqttpgls"
 $currentLink = supabase status 2>&1 | Select-String -Pattern $projectRef
 
 if (-not $currentLink) {

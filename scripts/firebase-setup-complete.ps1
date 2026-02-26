@@ -7,7 +7,7 @@
 # ==============================================================
 
 param(
-    [string]$SupabaseProjectRef = "eudwjgdijylsgcnncxeg"
+    [string]$SupabaseProjectRef = "hrkwqdvfeudxkqttpgls"
 )
 
 $ErrorActionPreference = "Stop"

@@ -2,15 +2,15 @@
 # Spustí len Firebase Auth migrácie cez psql (bez Supabase CLI).
 # ==============================================================
 # Použitie:
-#   $env:SUPABASE_DB_URL = "postgresql://postgres:HESLO@db.eudwjgdijylsgcnncxeg.supabase.co:5432/postgres"
+#   $env:SUPABASE_DB_URL = "postgresql://postgres:HESLO@db.hrkwqdvfeudxkqttpgls.supabase.co:5432/postgres"
 #   .\scripts\run-firebase-migrations-psql.ps1
 # alebo:
 #   $env:PGPASSWORD = "tvoje_heslo"
-#   .\scripts\run-firebase-migrations-psql.ps1 -ProjectRef eudwjgdijylsgcnncxeg
+#   .\scripts\run-firebase-migrations-psql.ps1 -ProjectRef hrkwqdvfeudxkqttpgls
 # ==============================================================
 
 param(
-    [string]$ProjectRef = "eudwjgdijylsgcnncxeg",
+    [string]$ProjectRef = "hrkwqdvfeudxkqttpgls",
     [string]$DbUrl = $env:SUPABASE_DB_URL
 )
 

@@ -1,6 +1,6 @@
 # Nastavi VITE_SUPABASE_PUBLISHABLE_KEY vo Vercel (production + preview).
 # Použitie: .\scripts\set-vercel-supabase-key.ps1 -AnonKey "eyJ..."
-# Anon key získaš: Supabase Dashboard -> projekt eudwjgdijylsgcnncxeg -> Settings -> API -> anon public
+# Anon key získaš: Supabase Dashboard -> projekt hrkwqdvfeudxkqttpgls -> Settings -> API -> anon public
 
 param(
     [Parameter(Mandatory = $true)]

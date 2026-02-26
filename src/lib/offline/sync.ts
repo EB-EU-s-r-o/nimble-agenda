@@ -1,5 +1,6 @@
 import { getDB, type OfflineAction } from "./db";
-import { supabase } from "@/integrations/supabase/client";
+import { getFirebaseFunctions } from "@/integrations/firebase/config";
+import { httpsCallable } from "firebase/functions";
 
 function getAppointmentId(action: OfflineAction): string | undefined {
   if ("payload" in action && action.payload && "id" in action.payload) {
@@ -21,57 +22,46 @@ interface SyncResponse {
 
 export async function runSync() {
   const db = await getDB();
+  const functions = getFirebaseFunctions();
+  if (!functions) return;
 
-  // 1) PUSH pending actions
+  const syncPush = httpsCallable<{ actions: OfflineAction[] }, SyncResponse>(functions, "syncPush");
+  const syncPull = httpsCallable<{ days?: number }, { ok: boolean; appointments?: unknown[] }>(functions, "syncPull");
+
   const allQueue = await db.getAllFromIndex("queue", "status");
-  const pending = allQueue.filter((i: any) => i.status === "pending" || i.status === "failed");
+  const pending = allQueue.filter((i: { status: string }) => i.status === "pending" || i.status === "failed");
 
   if (pending.length) {
     for (const item of pending) {
       if (!item.id) continue;
       await db.put("queue", { ...item, status: "processing", last_error: undefined });
-
       try {
-        const { data, error } = await supabase.functions.invoke("sync-push", {
-          body: { actions: [item.action] },
-        });
-
-        if (error) {
-          await db.put("queue", { ...item, status: "failed", last_error: error.message || "sync failed" });
-          continue;
-        }
-
-        const resp = data as SyncResponse;
-
-        if (resp.ok) {
+        const { data: resp } = await syncPush({ actions: [item.action] });
+        if (resp?.ok) {
           if (resp.conflicts?.length) {
             const conflict = resp.conflicts[0];
             await db.put("queue", {
               ...item,
               status: "conflict",
               last_error: conflict.reason,
-              conflict_suggestion: conflict.server_suggestion || undefined,
+              conflict_suggestion: conflict.server_suggestion,
               appointment_id: getAppointmentId(item.action),
             });
           } else {
             await db.put("queue", { ...item, status: "done" });
           }
         } else {
-          await db.put("queue", { ...item, status: "failed", last_error: resp.error || "sync failed" });
+          await db.put("queue", { ...item, status: "failed", last_error: resp?.error ?? "sync failed" });
         }
-      } catch (e: any) {
-        await db.put("queue", { ...item, status: "failed", last_error: e?.message || "network error" });
+      } catch (e: unknown) {
+        await db.put("queue", { ...item, status: "failed", last_error: (e as Error)?.message ?? "network error" });
       }
     }
   }
 
-  // 2) PULL latest snapshot (today + tomorrow)
   try {
-    const { data, error } = await supabase.functions.invoke("sync-pull", {
-      body: { days: 2 },
-    });
-
-    if (!error && data?.appointments && Array.isArray(data.appointments)) {
+    const { data } = await syncPull({ days: 2 });
+    if (data?.ok && data.appointments && Array.isArray(data.appointments)) {
       const tx = db.transaction("appointments", "readwrite");
       for (const a of data.appointments) {
         await tx.store.put({ ...a, synced: true });
@@ -85,14 +75,11 @@ export async function runSync() {
 
 export function installAutoSync() {
   if (typeof window === "undefined") return;
-
   const kick = () => {
     if (navigator.onLine) runSync();
   };
-
   window.addEventListener("online", kick);
   const t = setInterval(kick, 30_000);
-
   return () => {
     window.removeEventListener("online", kick);
     clearInterval(t);

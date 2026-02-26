@@ -1,0 +1,115 @@
+rules_version = '2';
+
+// Helper: true if user is owner or admin of the business (membership doc id = profileId_businessId)
+// dbId must be the database segment from match /databases/{dbId}/documents
+function isBusinessAdmin(businessId, dbId) {
+  let mid = request.auth.uid + '_' + businessId;
+  return request.auth != null
+    && exists(/databases/$(dbId)/documents/memberships/$(mid))
+    && get(/databases/$(dbId)/documents/memberships/$(mid)).data.role in ['owner', 'admin'];
+}
+
+// Helper: true if user is member (any role) of the business
+function isBusinessMember(businessId, dbId) {
+  let mid = request.auth.uid + '_' + businessId;
+  return request.auth != null
+    && exists(/databases/$(dbId)/documents/memberships/$(mid));
+}
+
+service cloud.firestore {
+  match /databases/{dbId}/documents {
+
+    // Profiles: own document only (doc id = Firebase Auth UID)
+    match /profiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Memberships: doc id = profile_id + '_' + business_id (compound)
+    match /memberships/{membershipId} {
+      allow read: if request.auth != null && resource.data.profile_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.profile_id == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && (resource.data.profile_id == request.auth.uid || isBusinessAdmin(resource.data.business_id, dbId));
+    }
+
+    // Businesses: public read (for booking page); write only for admin/owner
+    match /businesses/{businessId} {
+      allow read: if true;
+      allow write: if request.auth != null && isBusinessAdmin(businessId, dbId);
+    }
+
+    // Business-hours, overrides, quick links: by business admin
+    match /business_hours/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+    match /business_date_overrides/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+    match /business_quick_links/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+
+    // Employees, services: by business membership
+    match /employees/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+    match /services/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+    match /schedules/{docId} {
+      allow read, write: if request.auth != null
+        && isBusinessMember(get(/databases/$(dbId)/documents/employees/$(resource.data.employee_id)).data.business_id, dbId);
+      allow create: if request.auth != null
+        && isBusinessMember(get(/databases/$(dbId)/documents/employees/$(request.resource.data.employee_id)).data.business_id, dbId);
+    }
+    match /employee_services/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+
+    // Customers: by business membership
+    match /customers/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+
+    // Appointments: create only via Cloud Function (create-public-booking); read/update by business or own
+    match /appointments/{docId} {
+      allow read: if request.auth != null
+        && (isBusinessMember(resource.data.business_id, dbId)
+             || resource.data.employee_id != null && get(/databases/$(dbId)/documents/employees/$(resource.data.employee_id)).data.profile_id == request.auth.uid);
+      allow create: if false;
+      allow update, delete: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+    }
+
+    // Booking claims: only server (Cloud Functions); client no direct access
+    match /booking_claims/{docId} {
+      allow read, write: if false;
+    }
+
+    // Passkeys: own credentials only (by profile_id)
+    match /passkeys/{docId} {
+      allow read, write: if request.auth != null && resource.data.profile_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.profile_id == request.auth.uid;
+    }
+
+    // Sync dedup, onboarding: by business
+    match /sync_dedup/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+    match /onboarding_answers/{docId} {
+      allow read, write: if request.auth != null && isBusinessMember(resource.data.business_id, dbId);
+      allow create: if request.auth != null && isBusinessMember(request.resource.data.business_id, dbId);
+    }
+
+    match /user_roles/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

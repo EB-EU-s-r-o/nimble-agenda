@@ -8,6 +8,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
   return (
     <Sonner
+      data-testid="toast"
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       toastOptions={{

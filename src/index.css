@@ -37,6 +37,16 @@
     --gold: 43 74% 49%;
     --gold-foreground: 20 15% 10%;
 
+    /* Booking calendar – status (light). Kontrast textu vs pozadie ≥ 4.5:1 (WCAG AA). */
+    --calendar-pending: 43 74% 49%;
+    --calendar-pending-fg: 22 18% 8%;
+    --calendar-confirmed: 142 48% 30%;
+    --calendar-confirmed-fg: 0 0% 100%;
+    --calendar-cancelled: 0 72% 48%;
+    --calendar-cancelled-fg: 0 0% 100%;
+    --calendar-completed: 220 14% 24%;
+    --calendar-completed-fg: 0 0% 98%;
+
     --sidebar-background: 20 15% 10%;
     --sidebar-foreground: 35 10% 88%;
     --sidebar-primary: 43 74% 55%;
@@ -70,6 +80,16 @@
 
     --gold: 43 74% 52%;
     --gold-foreground: 0 0% 5%;
+
+    /* Booking calendar – status (dark). Kontrast textu vs pozadie ≥ 4.5:1 (WCAG AA). */
+    --calendar-pending: 43 70% 55%;
+    --calendar-pending-fg: 22 20% 6%;
+    --calendar-confirmed: 142 38% 38%;
+    --calendar-confirmed-fg: 0 0% 100%;
+    --calendar-cancelled: 0 62% 52%;
+    --calendar-cancelled-fg: 0 0% 100%;
+    --calendar-completed: 220 12% 38%;
+    --calendar-completed-fg: 0 0% 92%;
 
     --sidebar-background: 0 0% 0%;
     --sidebar-foreground: 0 0% 85%;

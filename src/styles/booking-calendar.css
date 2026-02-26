@@ -1,0 +1,78 @@
+/* Booking calendar – zlato/čierna téma, light/dark, best practices (kontrast, focus, reduced motion) */
+
+.booking-calendar {
+  @apply bg-card text-card-foreground rounded-xl border border-border overflow-hidden;
+}
+
+.booking-calendar-header {
+  @apply border-border bg-card;
+}
+
+.booking-calendar-body {
+  @apply bg-background border-t border-border;
+}
+
+/* Slot – výber času: jemné zlato, focus pre klávesnicu */
+.booking-calendar-slot:hover {
+  background-color: hsl(var(--gold) / 0.08);
+}
+
+.booking-calendar-slot:active {
+  background-color: hsl(var(--gold) / 0.15);
+}
+
+.booking-calendar-slot:focus-visible {
+  outline: 2px solid hsl(var(--gold));
+  outline-offset: -2px;
+  background-color: hsl(var(--gold) / 0.12);
+}
+
+/* Dnešný deň v mesiaci – zlato (jednotná paleta) */
+.booking-calendar-today {
+  background-color: hsl(var(--gold));
+  color: hsl(var(--gold-foreground));
+}
+
+/* Časová mriežka */
+.booking-calendar-hour-line {
+  border-bottom-color: hsl(var(--border) / 0.6);
+}
+
+/* Event chip – zaoblenie, prechod, focus, reduced motion */
+.booking-calendar-event {
+  border-radius: var(--radius);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.15s ease;
+}
+
+.booking-calendar-event:hover {
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+}
+
+.booking-calendar-event:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--gold));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-calendar-event,
+  .booking-calendar-slot {
+    transition: none;
+  }
+}
+
+/* „+N ďalších“ – zlato, konzistentné s témou */
+.booking-calendar-more {
+  color: hsl(var(--gold));
+}
+
+.booking-calendar-more:hover {
+  text-decoration: underline;
+}
+
+.booking-calendar-more:focus-visible {
+  outline: 2px solid hsl(var(--gold));
+  outline-offset: 2px;
+}

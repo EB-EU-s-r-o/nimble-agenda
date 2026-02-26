@@ -54,7 +54,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="dashboard">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Prehľad</h1>
         <p className="text-muted-foreground text-sm">{format(new Date(), "EEEE, d. MMMM yyyy", { locale: sk })}</p>

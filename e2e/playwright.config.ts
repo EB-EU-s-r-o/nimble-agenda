@@ -16,7 +16,7 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "off",
+    video: "retain-on-failure",
   },
   timeout: 30_000,
   expect: { timeout: 10_000 },

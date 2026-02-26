@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { Calendar, dateFnsLocalizer, View, SlotInfo } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, addMinutes, startOfDay, addDays } from "date-fns";
+import { addMinutes, startOfDay, addDays, format as fmtDate } from "date-fns";
 import { sk } from "date-fns/locale";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import "@/styles/big-calendar-overrides.css";
-import { supabase } from "@/integrations/supabase/client";
+import { getFirebaseFirestore } from "@/integrations/firebase/config";
+import { BookingCalendar, statusToColor, type BookingCalendarEvent, type BookingCalendarMode, type SlotInfo } from "@/components/booking-calendar";
+import { collection, doc, getDoc, getDocs, query, where, orderBy, addDoc, updateDoc } from "firebase/firestore";
 import { useBusiness } from "@/hooks/useBusiness";
 import { generateSlots, type BusinessHours, type EmployeeSchedule, type ExistingAppointment } from "@/lib/availability";
 import { Button } from "@/components/ui/button";
@@ -15,23 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, User, Clock, Phone, X, Check } from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
-import { format as fmtDate } from "date-fns";
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 1 }),
-  getDay,
-  locales: { sk },
-});
-
-const SK_MESSAGES = {
-  allDay: "Celý deň", previous: "‹", next: "›", today: "Dnes",
-  month: "Mesiac", week: "Týždeň", day: "Deň", agenda: "Agenda",
-  date: "Dátum", time: "Čas", event: "Udalosť",
-  noEventsInRange: "Žiadne rezervácie v tomto období",
-  showMore: (total: number) => `+${total} ďalších`,
-};
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Čaká na potvrdenie", confirmed: "Potvrdená",
@@ -45,7 +27,7 @@ interface CalEvent {
 export default function CalendarPage() {
   const { businessId, isOwnerOrAdmin } = useBusiness();
   const [events, setEvents] = useState<CalEvent[]>([]);
-  const [view, setView] = useState<View>("week");
+  const [view, setView] = useState<BookingCalendarMode>("week");
   const [date, setDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<any[]>([]);
@@ -66,44 +48,46 @@ export default function CalendarPage() {
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("appointments")
-      .select("*, customers(full_name, phone), services(name_sk), employees(display_name)")
-      .eq("business_id", businessId)
-      .order("start_at");
-    if (data) {
-      setEvents(data.map((a) => ({
-        id: a.id, title: `${a.customers?.full_name ?? "?"} – ${a.services?.name_sk ?? "?"}`,
-        start: new Date(a.start_at), end: new Date(a.end_at), status: a.status, resource: a,
-      })));
+    const firestore = getFirebaseFirestore();
+    if (!firestore) { setLoading(false); return; }
+    const apptSnap = await getDocs(query(collection(firestore, "appointments"), where("business_id", "==", businessId), orderBy("start_at")));
+    const eventsList: CalEvent[] = [];
+    for (const d of apptSnap.docs) {
+      const a = d.data();
+      const [custSnap, svcSnap] = await Promise.all([
+        getDoc(doc(firestore, "customers", a.customer_id)),
+        getDoc(doc(firestore, "services", a.service_id)),
+      ]);
+      eventsList.push({
+        id: d.id,
+        title: `${custSnap.data()?.full_name ?? "?"} – ${svcSnap.data()?.name_sk ?? "?"}`,
+        start: new Date(a.start_at),
+        end: new Date(a.end_at),
+        status: a.status,
+        resource: { ...a, id: d.id },
+      });
     }
+    setEvents(eventsList);
     setLoading(false);
   }, [businessId]);
 
   useEffect(() => {
     loadEvents();
-    supabase.from("businesses").select("*").eq("id", businessId).maybeSingle().then(({ data }) => { if (data) setBusiness(data); });
-    supabase.from("services").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => { if (data) setServices(data); });
-    supabase.from("employees").select("*").eq("business_id", businessId).eq("is_active", true).then(({ data }) => {
-      if (data) {
-        setEmployees(data);
-        const ids = data.map((e: any) => e.id);
-        if (ids.length) {
-          supabase.from("schedules").select("*").in("employee_id", ids).then(({ data: scheds }) => {
-            const map: Record<string, EmployeeSchedule[]> = {};
-            (scheds ?? []).forEach((s: any) => {
-              if (!map[s.employee_id]) map[s.employee_id] = [];
-              map[s.employee_id].push(s);
-            });
-            setSchedules(map);
-          });
-        }
-      }
+    const firestore = getFirebaseFirestore();
+    if (!firestore) return;
+    getDoc(doc(firestore, "businesses", businessId)).then((snap) => { if (snap.exists()) setBusiness(snap.data()); });
+    getDocs(query(collection(firestore, "services"), where("business_id", "==", businessId), where("is_active", "==", true))).then((snap) => { setServices(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); });
+    getDocs(query(collection(firestore, "employees"), where("business_id", "==", businessId), where("is_active", "==", true))).then((snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setEmployees(data);
+      const ids = data.map((e: any) => e.id);
+      if (ids.length) getDocs(query(collection(firestore, "schedules"), where("employee_id", "in", ids.slice(0, 10)))).then((schedSnap) => {
+        const map: Record<string, EmployeeSchedule[]> = {};
+        schedSnap.docs.forEach((s) => { const d = s.data(); if (!map[d.employee_id]) map[d.employee_id] = []; map[d.employee_id].push({ day_of_week: d.day_of_week, start_time: d.start_time, end_time: d.end_time }); });
+        setSchedules(map);
+      });
     });
-    // Load memberships for admin filtering
-    supabase.from("memberships").select("profile_id, role").eq("business_id", businessId).then(({ data }) => {
-      if (data) setMemberships(data);
-    });
+    getDocs(query(collection(firestore, "memberships"), where("business_id", "==", businessId))).then((snap) => { setMemberships(snap.docs.map((d) => d.data())); });
   }, [businessId, loadEvents]);
 
   // Filter employees based on allow_admin_as_provider setting
@@ -124,13 +108,19 @@ export default function CalendarPage() {
     const dayStart = startOfDay(slotDate);
     const dayEnd = addDays(dayStart, 1);
 
-    const { data: existing } = await supabase
-      .from("appointments")
-      .select("start_at, end_at")
-      .eq("employee_id", employeeId)
-      .gte("start_at", dayStart.toISOString())
-      .lt("start_at", dayEnd.toISOString())
-      .neq("status", "cancelled");
+    const firestore = getFirebaseFirestore();
+    let existing: { start_at: string; end_at: string }[] = [];
+    if (firestore) {
+      const apptSnap = await getDocs(
+        query(
+          collection(firestore, "appointments"),
+          where("employee_id", "==", employeeId),
+          where("start_at", ">=", dayStart.toISOString()),
+          where("start_at", "<", dayEnd.toISOString())
+        )
+      );
+      existing = apptSnap.docs.filter((d) => d.data().status !== "cancelled").map((d) => ({ start_at: d.data().start_at, end_at: d.data().end_at }));
+    }
 
     const slots = generateSlots({
       date: slotDate,
@@ -159,7 +149,27 @@ export default function CalendarPage() {
     setBookingModal(true);
   };
 
-  const handleSelectEvent = (event: CalEvent) => { setSelectedEvent(event); setDetailModal(true); };
+  const handleSelectEvent = (event: BookingCalendarEvent) => {
+    const res = event.resource as { status?: string } | undefined;
+    setSelectedEvent({
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      status: res?.status ?? "pending",
+      resource: event.resource,
+    });
+    setDetailModal(true);
+  };
+
+  const bookingCalendarEvents: BookingCalendarEvent[] = events.map((e) => ({
+    id: e.id,
+    title: e.title,
+    start: e.start,
+    end: e.end,
+    color: statusToColor(e.status),
+    resource: e.resource,
+  }));
 
   const handleBook = async () => {
     if (!bookForm.service_id || !bookForm.employee_id || !bookForm.start_at) { toast.error("Vyplňte všetky polia"); return; }
@@ -169,30 +179,53 @@ export default function CalendarPage() {
     const start = new Date(bookForm.start_at);
     const end = addMinutes(start, duration);
 
-    // Find or create a walk-in customer
-    const { data: customer } = await supabase.from("customers")
-      .upsert(
-        { business_id: businessId, full_name: "Zákazník (osobne)", email: `walkin-${Date.now()}@internal` },
-        { onConflict: "business_id,email" }
-      )
-      .select().single();
-    if (!customer) { toast.error("Chyba pri vytváraní zákazníka"); setSaving(false); return; }
-
-    const { error } = await supabase.from("appointments").insert({
-      business_id: businessId, customer_id: customer.id, employee_id: bookForm.employee_id,
-      service_id: bookForm.service_id, start_at: start.toISOString(), end_at: end.toISOString(), status: "confirmed",
+    const firestore = getFirebaseFirestore();
+    if (!firestore) { setSaving(false); return; }
+    const walkinEmail = `walkin-${Date.now()}@internal`;
+    const existingSnap = await getDocs(query(collection(firestore, "customers"), where("business_id", "==", businessId), where("email", "==", walkinEmail)));
+    let customerId: string;
+    if (!existingSnap.empty) {
+      customerId = existingSnap.docs[0].id;
+    } else {
+      const newCust = await addDoc(collection(firestore, "customers"), {
+        business_id: businessId,
+        full_name: "Zákazník (osobne)",
+        email: walkinEmail,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      customerId = newCust.id;
+    }
+    await addDoc(collection(firestore, "appointments"), {
+      business_id: businessId,
+      customer_id: customerId,
+      employee_id: bookForm.employee_id,
+      service_id: bookForm.service_id,
+      start_at: start.toISOString(),
+      end_at: end.toISOString(),
+      status: "confirmed",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
     setSaving(false);
-    if (error) { toast.error("Chyba pri vytváraní rezervácie"); return; }
-    toast.success("Rezervácia vytvorená"); setBookingModal(false); loadEvents();
+    toast.success("Rezervácia vytvorená");
+    setBookingModal(false);
+    loadEvents();
   };
 
   const handleStatusChange = async (newStatus: "pending" | "confirmed" | "cancelled" | "completed") => {
     if (!selectedEvent) return;
     setUpdatingStatus(true);
-    const { error } = await supabase.from("appointments").update({ status: newStatus }).eq("id", selectedEvent.id);
+    const firestore = getFirebaseFirestore();
+    if (!firestore) { setUpdatingStatus(false); return; }
+    try {
+      await updateDoc(doc(firestore, "appointments", selectedEvent.id), { status: newStatus, updated_at: new Date().toISOString() });
+    } catch {
+      toast.error("Chyba pri aktualizácii");
+      setUpdatingStatus(false);
+      return;
+    }
     setUpdatingStatus(false);
-    if (error) { toast.error("Chyba pri aktualizácii"); return; }
     toast.success("Status aktualizovaný"); setDetailModal(false); loadEvents();
   };
 
@@ -203,13 +236,16 @@ export default function CalendarPage() {
         {loading && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
       </div>
 
-      <div className="bg-card rounded-xl border border-border p-4" style={{ height: "calc(100vh - 200px)", minHeight: 500 }}>
-        <Calendar
-          localizer={localizer} events={events} view={view} onView={setView}
-          date={date} onNavigate={setDate} culture="sk" messages={SK_MESSAGES}
-          selectable={isOwnerOrAdmin} onSelectSlot={handleSelectSlot} onSelectEvent={handleSelectEvent}
-          eventPropGetter={(e: CalEvent) => ({ className: `status-${e.status}` })}
-          step={30} timeslots={2} popup style={{ height: "100%" }}
+      <div className="bg-card rounded-xl border border-border p-4 flex flex-col min-h-0" style={{ height: "calc(100vh - 200px)", minHeight: 500 }}>
+        <BookingCalendar
+          events={bookingCalendarEvents}
+          date={date}
+          setDate={setDate}
+          mode={view}
+          setMode={setView}
+          onSelectSlot={handleSelectSlot}
+          onSelectEvent={handleSelectEvent}
+          selectable={isOwnerOrAdmin}
         />
       </div>
 
@@ -274,7 +310,9 @@ export default function CalendarPage() {
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-sm">
                   <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span className="font-medium">{selectedEvent.resource?.customers?.full_name}</span>
+                  <span className="font-medium">
+                    {selectedEvent.resource?.customers?.full_name ?? selectedEvent.title}
+                  </span>
                 </div>
                 {selectedEvent.resource?.customers?.phone && (
                   <div className="flex items-center gap-2 text-sm">
@@ -284,7 +322,11 @@ export default function CalendarPage() {
                 )}
                 <div className="flex items-center gap-2 text-sm">
                   <LogoIcon size="sm" className="w-4 h-4 flex-shrink-0" />
-                  <span>{selectedEvent.resource?.services?.name_sk} · {selectedEvent.resource?.employees?.display_name}</span>
+                  <span>
+                    {selectedEvent.resource?.services?.name_sk && selectedEvent.resource?.employees?.display_name
+                      ? `${selectedEvent.resource.services.name_sk} · ${selectedEvent.resource.employees.display_name}`
+                      : selectedEvent.title}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />

@@ -1,0 +1,101 @@
+{
+  // Example (Standard Edition):
+  //
+  // "indexes": [
+  //   {
+  //     "collectionGroup": "widgets",
+  //     "queryScope": "COLLECTION",
+  //     "fields": [
+  //       { "fieldPath": "foo", "arrayConfig": "CONTAINS" },
+  //       { "fieldPath": "bar", "mode": "DESCENDING" }
+  //     ]
+  //   },
+  //
+  //  "fieldOverrides": [
+  //    {
+  //      "collectionGroup": "widgets",
+  //      "fieldPath": "baz",
+  //      "indexes": [
+  //        { "order": "ASCENDING", "queryScope": "COLLECTION" }
+  //      ]
+  //    },
+  //   ]
+  // ]
+  //
+  // Example (Enterprise Edition):
+  //
+  // "indexes": [
+  //   {
+  //     "collectionGroup": "reviews",
+  //     "queryScope": "COLLECTION_GROUP",
+  //     "apiScope": "MONGODB_COMPATIBLE_API",
+  //     "density": "DENSE",
+  //     "multikey": false,
+  //     "fields": [
+  //       { "fieldPath": "baz", "mode": "ASCENDING" }
+  //     ]
+  //   },
+  //   {
+  //     "collectionGroup": "items",
+  //     "queryScope": "COLLECTION_GROUP",
+  //     "apiScope": "MONGODB_COMPATIBLE_API",
+  //     "density": "SPARSE_ANY",
+  //     "multikey": true,
+  //     "fields": [
+  //       { "fieldPath": "baz", "mode": "ASCENDING" }
+  //     ]
+  //   },
+  // ]
+  "indexes": [
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "mode": "ASCENDING" },
+        { "fieldPath": "start_at", "mode": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employee_id", "mode": "ASCENDING" },
+        { "fieldPath": "start_at", "mode": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "mode": "ASCENDING" },
+        { "fieldPath": "status", "mode": "ASCENDING" },
+        { "fieldPath": "start_at", "mode": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "business_hours",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "mode": "ASCENDING" },
+        { "fieldPath": "sort_order", "mode": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "business_date_overrides",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "mode": "ASCENDING" },
+        { "fieldPath": "override_date", "mode": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sync_dedup",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "mode": "ASCENDING" },
+        { "fieldPath": "idempotency_key", "mode": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

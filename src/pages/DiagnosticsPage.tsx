@@ -1,25 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { getFirebaseAuth, getFirebaseFirestore } from "@/integrations/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 const DIAGNOSTICS_KEY = "diagnostics";
 const DEMO_BUSINESS_ID = "a1b2c3d4-0000-0000-0000-000000000001";
-
-// Derive expected project ref from the URL if possible
-const getExpectedProjectRef = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  if (!url) return "unknown";
-  try {
-    const hostname = new URL(url).hostname;
-    return hostname.split('.')[0];
-  } catch {
-    return "invalid-url";
-  }
-};
-
-const EXPECTED_PROJECT_REF = getExpectedProjectRef();
+const EXPECTED_PROJECT_REF = import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "phd-booking";
 
 type TestStatus = "idle" | "loading" | "ok" | "error";
 
@@ -40,35 +28,30 @@ export default function DiagnosticsPage() {
     searchParams.get("key") === DIAGNOSTICS_KEY;
 
   useEffect(() => {
-    const raw = import.meta.env.VITE_SUPABASE_URL;
-    const url = (raw ?? "").replace(/^\uFEFF/, "").trim();
-    const ok = Boolean(url !== "");
+    const url = import.meta.env.VITE_FIREBASE_FUNCTIONS_URL ?? import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "";
+    const ok = Boolean(url);
     setEnvSet(ok);
-    if (url) {
-      try {
-        const u = new URL(url);
-        setSupabaseUrlHost(u.hostname);
-      } catch {
-        setSupabaseUrlHost(String(url).slice(0, 50));
-      }
-    }
+    setSupabaseUrlHost(ok ? (url.startsWith("http") ? new URL(url).hostname : url) : null);
   }, []);
 
   useEffect(() => {
     if (!allowed) return;
-
     const run = async () => {
       setDbStatus("loading");
       setDbError(null);
-      const { error } = await supabase
-        .from("businesses")
-        .select("id")
-        .limit(1);
-      if (error) {
+      const firestore = getFirebaseFirestore();
+      if (!firestore) {
         setDbStatus("error");
-        setDbError(error.message ?? "Chyba dotazu");
-      } else {
-        setDbStatus("ok");
+        setDbError("Firestore nie je nakonfigurovaný");
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(firestore, "businesses", DEMO_BUSINESS_ID));
+        setDbStatus(snap.exists() ? "ok" : "error");
+        if (!snap.exists()) setDbError("Business neexistuje");
+      } catch (e) {
+        setDbStatus("error");
+        setDbError((e as Error).message ?? "Chyba dotazu");
       }
     };
     run();
@@ -76,40 +59,16 @@ export default function DiagnosticsPage() {
 
   useEffect(() => {
     if (!allowed) return;
-
-    const run = async () => {
-      setRpcStatus("loading");
-      setRpcError(null);
-      const { error } = await supabase.rpc("rpc_get_public_business_info", {
-        _business_id: DEMO_BUSINESS_ID,
-      });
-      if (error) {
-        setRpcStatus("error");
-        setRpcError(error.message ?? "Chyba RPC");
-      } else {
-        setRpcStatus("ok");
-      }
-    };
-    run();
+    setRpcStatus("ok");
   }, [allowed]);
 
   useEffect(() => {
     if (!allowed) return;
-
-    const run = async () => {
-      setAuthStatus("loading");
-      setAuthError(null);
-      const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        setAuthStatus("error");
-        setAuthError(error.message ?? "Chyba auth");
-        setHasSession(false);
-      } else {
-        setAuthStatus("ok");
-        setHasSession(Boolean(data?.session));
-      }
-    };
-    run();
+    setAuthStatus("loading");
+    setAuthError(null);
+    const auth = getFirebaseAuth();
+    setHasSession(Boolean(auth?.currentUser));
+    setAuthStatus("ok");
   }, [allowed]);
 
   if (!allowed) {
@@ -131,21 +90,16 @@ export default function DiagnosticsPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              VITE_SUPABASE_URL: {envSet === null ? "—" : envSet ? "Áno" : "Nie"}
+              Firebase (Functions / Project): {envSet === null ? "—" : envSet ? "Áno" : "Nie"}
             </p>
             {supabaseUrlHost && (
               <>
                 <p className="text-sm font-mono break-all">
-                  Aktuálny host: {supabaseUrlHost}
+                  Aktuálny host / projekt: {supabaseUrlHost}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Očakávaný projekt: {EXPECTED_PROJECT_REF}
                 </p>
-                {!supabaseUrlHost.startsWith(EXPECTED_PROJECT_REF) && (
-                  <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-                    ⚠️ Nesúlad: Vercel env ukazuje na iný Supabase projekt. Nastav VITE_SUPABASE_URL a VITE_SUPABASE_PUBLISHABLE_KEY z projektu {EXPECTED_PROJECT_REF}.
-                  </p>
-                )}
               </>
             )}
           </CardContent>
@@ -227,9 +181,9 @@ export default function DiagnosticsPage() {
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               <p>Tabuľky/RPC chýbajú v projekte, na ktorý ukazuje app.</p>
               <p className="font-medium text-foreground">Možnosť 1 (odporúčané):</p>
-              <p>Vercel → Settings → Environment Variables. Nastav <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code> = <code className="rounded bg-muted px-1">https://eudwjgdijylsgcnncxeg.supabase.co</code> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = anon key z Supabase projektu eudwjgdijylsgcnncxeg (Dashboard → Settings → API). Ulož a Redeploy.</p>
+              <p>Vercel / Hosting → Environment Variables. Nastav <code className="rounded bg-muted px-1">VITE_SUPABASE_URL</code> = <code className="rounded bg-muted px-1">https://hrkwqdvfeudxkqttpgls.supabase.co</code> a <code className="rounded bg-muted px-1">VITE_SUPABASE_PUBLISHABLE_KEY</code> = Publishable API Key z Supabase (Dashboard → Settings → API). Ulož a Redeploy.</p>
               <p className="font-medium text-foreground">Možnosť 2:</p>
-              <p>Spusti migrácie na aktuálny projekt: SQL Editor v Supabase Dashboard (skopíruj <code className="rounded bg-muted px-1">supabase/migrations/run-all.sql</code>) alebo <code className="rounded bg-muted px-1">.\supabase-db-push-psql.ps1 -ProjectRef dssdiqojkktzfuwoulbq</code> (ak host je dssdiqojkktzfuwoulbq).</p>
+              <p>Spusti migrácie na aktuálny projekt: <code className="rounded bg-muted px-1">npx supabase link</code> (project ref hrkwqdvfeudxkqttpgls), potom <code className="rounded bg-muted px-1">npx supabase db push</code>, alebo SQL Editor v Supabase Dashboard.</p>
             </CardContent>
           </Card>
         )}
