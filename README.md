@@ -1,6 +1,6 @@
 # PAPI HAIR DESIGN – Booking System
 
-> Moderný rezervačný systém pre salóny krásy. React 18 PWA + Supabase Cloud backend.
+> Moderný rezervačný systém pre salóny krásy. React 18 PWA. Backend: **Firebase** (Firestore + Cloud Functions + Auth) alebo Supabase (legacy). Pozri [docs/MIGRATION-FIREBASE.md](docs/MIGRATION-FIREBASE.md).
 
 ---
 
@@ -25,6 +25,8 @@
 - [Offline podpora](#offline-podpora)
 - [PWA inštalácia](#pwa-inštalácia)
 - [Bezpečnosť](#bezpečnosť)
+- [Package manager](#package-manager)
+- [Príprava na nový vývoj](#príprava-na-nový-vývoj-checklist)
 - [Vývoj a testovanie](#vývoj-a-testovanie)
 - [Changelog](#changelog)
 
@@ -39,9 +41,14 @@ React 18 + Vite + TypeScript
 ├── TanStack React Query            — Server state management
 ├── Dexie.js (IndexedDB)            — Offline-first lokálna databáza
 ├── vite-plugin-pwa (Workbox)       — PWA + service worker
-└── Supabase Cloud
-    ├── PostgreSQL + RLS            — Databáza s bezpečnostnými politikami
-    ├── Supabase Auth               — Autentifikácia (email, OAuth, Passkeys)
+└── Backend (Firebase alebo Supabase)
+    Firebase (odporúčané po migrácii):
+    ├── Firestore                  — Databáza, pravidlá (docs/FIRESTORE-SCHEMA.md)
+    ├── Firebase Auth              — Autentifikácia (email, Passkeys cez custom token)
+    └── Cloud Functions (Node)      — createPublicBooking, claimBooking, sync, webauthn, SMTP, …
+    Supabase (legacy):
+    ├── PostgreSQL + RLS            — Databáza
+    ├── Supabase Auth               — Autentifikácia
     └── Edge Functions (Deno)       — Serverless logika
 ```
 
@@ -68,6 +75,7 @@ React 18 + Vite + TypeScript
 
 - Node.js 18+
 - Git
+- **Package manager:** npm (projekt používa `package-lock.json`).
 
 ### Inštalácia
 
@@ -80,7 +88,7 @@ npm run setup
 .\setup.ps1
 ```
 
-Skript skontroluje Node.js, nainštaluje závislosti a vytvorí `.env` z `.env.example` (ak ešte neexistuje).
+Skript skontroluje Node.js, nainštaluje závislosti cez **npm** a vytvorí `.env` z `.env.example` (ak ešte neexistuje).
 
 **Manuálne:**
 
@@ -90,7 +98,7 @@ git clone https://github.com/EB-EU-s-r-o/nimble-agenda.git
 cd nimble-agenda
 
 # 2. (Voliteľne) Nastav Node 18+ cez nvm: nvm use
-# 3. Nainštaluj závislosti
+# 3. Nainštaluj závislosti (použi jeden prístup)
 npm install
 
 # 4. Nastav premenné prostredia
@@ -103,6 +111,10 @@ npm run dev
 
 App bude dostupná na **http://localhost:8080**
 
+### Package manager
+
+Projekt používa **npm** a `package-lock.json`. Príkazy spúšťaj cez `npm run …`. Viac: [docs/DEVELOPMENT-SETUP.md](docs/DEVELOPMENT-SETUP.md).
+
 ### Dostupné príkazy
 
 | Príkaz | Popis |
@@ -113,7 +125,23 @@ App bude dostupná na **http://localhost:8080**
 | `npm run preview` | Náhľad produkčného buildu lokálne |
 | `npm run lint` | ESLint kontrola kódu |
 | `npm run test` | Spusti všetky testy (Vitest) |
+| `npm run test:coverage` | Unit testy + coverage report |
 | `npm run test:watch` | Testy v sledovacom móde |
+| `npm run budget` | Kontrola veľkosti `dist/` (po build) |
+| `npm run lockin:check` | Kontrola Node verzie (`engines`) |
+| `npm run deploy:firebase` | Build + deploy na Firebase Hosting |
+
+### Príprava na nový vývoj (checklist)
+
+Keď sa vrátiš k projektu alebo ťaháš najnovšie zmeny:
+
+1. **Stiahnuť zmeny:** `git pull origin main`
+2. **Závislosti:** `npm run setup` (alebo `npm install` + manuálne `.env`)
+3. **Premenné:** Skontrolovať `.env` (Supabase URL a anon key)
+4. **Overiť:** `npm run lint`, `npm run test`, `npm run build`
+5. **Štart:** `npm run dev` → http://localhost:8080
+
+Podrobný návod: [docs/DEVELOPMENT-SETUP.md](docs/DEVELOPMENT-SETUP.md).
 
 ---
 
@@ -128,6 +156,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=tvoj-anon-key
 ```
 
 > Hodnoty nájdeš v Supabase dashboarde pod **Settings → API**.
+
+**Kde ukladať kľúče a čo necommituj:** Tabuľka (Publishable Key, Anon Key, Service Role, DB heslo, ACCESS_TOKEN), priame pripojenie k DB a nastavenie na hostingu – všetko je v **[docs/CREDENTIALS-STORE.md](docs/CREDENTIALS-STORE.md)**. Skutočné heslo a secret kľúče ukladaj len do password managera a do lokálneho `.env`; na hostingu nastav Environment Variables podľa toho istého dokumentu.
 
 ### Auth na produkčnej doméne (booking.papihairdesign.sk)
 
@@ -152,6 +182,26 @@ Ak Vercel zobrazí *"The repository is private and owned by an organization, whi
 ### Vercel Hobby a súkromný org repozitár
 
 Vercel Hobby nepodporuje deploy zo súkromného repozitára vlastneného **organizáciou**. Ak pripájaš taký repo, dostaneš chybu. Riešenie: mať repozitár pod osobným účtom (prevod vlastníctva alebo nové osobné repo). Detailný postup a pomocné skripty: **[docs/VERCEL-HOBBY-ORG-REPO.md](docs/VERCEL-HOBBY-ORG-REPO.md)**.
+
+### Firebase Hosting
+
+Projekt má pripravený deploy na **Firebase Hosting**. Pred prvým deployom:
+
+1. V [Firebase Console](https://console.firebase.google.com/) vytvor projekt (alebo zvoľ existujúci) a skopíruj **Project ID**.
+2. Do súboru **`.firebaserc`** nahraď `your-firebase-project-id` skutočným Project ID.
+3. Nainštaluj CLI: `npm install -g firebase-tools`, prihlás sa: `firebase login`.
+4. (Voliteľne) Ak ešte nebol: `firebase init` v koreni projektu – tento repo už má `firebase.json` a `functions/`.
+5. Build a deploy: `npm run deploy:firebase` (len hosting) alebo `npm run deploy:firebase:first` (hosting + firestore). Pre deploy **Functions** je potrebný Blaze plán; postup: [docs/MIGRATION-FIREBASE.md](docs/MIGRATION-FIREBASE.md#set-up-functions-inštalácia-a-prvý-deploy). Audit čo funguje na Spark (zadarmo) vs Blaze: [docs/FIREBASE-SPARK-AUDIT.md](docs/FIREBASE-SPARK-AUDIT.md).
+
+Aplikácia bude na `https://<tvoj-project-id>.web.app`. SPA routing je nakonfigurovaný v `firebase.json` (rewrite na `index.html`).
+
+**Aktuálny Firebase projekt (produkcia):**
+
+| Pole | Hodnota |
+|------|---------|
+| Project name | PHD-BOOKING |
+| Project ID | phd-booking |
+| Project number | 1054453277711 |
 
 ---
 
@@ -269,10 +319,14 @@ nimble-agenda/
 │   ├── functions/                 # Edge Functions (Deno)
 │   └── migrations/                # SQL migrácie (verzionované)
 ├── docs/
+│   ├── DEVELOPMENT-SETUP.md       # Príprava prostredia, npm, troubleshooting
+│   ├── E2E-TESTING.md             # Release gate, E2E pravidlá, data-testid matica, truth switch
 │   ├── seed-demo.sql              # Demo seed dáta pre lokálny vývoj
 │   └── ARCHITECTURE.md            # Detailná technická dokumentácia
 ├── .env.example                   # Vzor premenných prostredia
+├── .firebaserc                    # Firebase project ID (nahraď your-firebase-project-id)
 ├── .gitignore
+├── firebase.json                  # Firebase Hosting (dist, SPA rewrites)
 ├── package.json
 ├── vite.config.ts                 # Vite + PWA konfigurácia
 ├── tailwind.config.ts
@@ -434,7 +488,9 @@ npm run test:watch   # sledovací mód
 npm run lint         # kontrola kódu
 ```
 
-Testy: `src/test/` | Framework: **Vitest** + **@testing-library/react** + **jsdom**
+Testy: `src/test/` | Framework: **Vitest** + **@testing-library/react** + **jsdom**. Odporúčané poradie v CI a E2E pravidlá: [docs/E2E-TESTING.md](docs/E2E-TESTING.md).
+
+Ak IDE hlási, že Vitest nie je nájdený, spusti v koreni `npm install`. Viď [docs/DEVELOPMENT-SETUP.md](docs/DEVELOPMENT-SETUP.md).
 
 ### Vývojové nástroje
 

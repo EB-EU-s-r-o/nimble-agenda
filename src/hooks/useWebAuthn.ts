@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getFirebaseAuth, getFirebaseFunctions } from "@/integrations/firebase/config";
+import { httpsCallable } from "firebase/functions";
+import { signInWithCustomToken } from "firebase/auth";
 import { toast } from "sonner";
 
 function bufferToBase64url(buffer: ArrayBuffer): string {
@@ -19,7 +21,6 @@ function base64ToBuffer(b64: string): ArrayBuffer {
 
 export function useWebAuthn() {
   const [loading, setLoading] = useState(false);
-
   const isSupported = typeof window !== "undefined" && !!window.PublicKeyCredential;
 
   const checkPlatformAuthenticator = useCallback(async () => {
@@ -36,21 +37,19 @@ export function useWebAuthn() {
       toast.error("Váš prehliadač nepodporuje passkeys");
       return false;
     }
-
+    const functions = getFirebaseFunctions();
+    if (!functions) {
+      toast.error("Funkcie nie sú dostupné");
+      return false;
+    }
     setLoading(true);
     try {
-      // Get challenge from server
-      const { data: options, error: optErr } = await supabase.functions.invoke(
-        "webauthn-register",
-        { body: { action: "challenge" } }
-      );
-
-      if (optErr || !options) {
+      const getChallenge = httpsCallable<unknown, { challenge: string; rp: unknown; user: { id: string; name: string; displayName: string }; pubKeyCredParams: unknown[]; timeout: number; attestation: string; authenticatorSelection: unknown; excludeCredentials: { id: string; type: string }[] }>(functions, "webauthnRegisterChallenge");
+      const { data: options } = await getChallenge({});
+      if (!options) {
         toast.error("Nepodarilo sa získať registračnú výzvu");
         return false;
       }
-
-      // Create credential
       const credential = (await navigator.credentials.create({
         publicKey: {
           challenge: base64ToBuffer(options.challenge),
@@ -62,49 +61,25 @@ export function useWebAuthn() {
           },
           pubKeyCredParams: options.pubKeyCredParams,
           timeout: options.timeout,
-          attestation: options.attestation,
-          authenticatorSelection: options.authenticatorSelection,
-          excludeCredentials: (options.excludeCredentials || []).map(
-            (c: { id: string; type: string }) => ({
-              ...c,
-              id: base64ToBuffer(c.id),
-            })
-          ),
+          attestation: options.attestation as AttestationConveyancePreference,
+          authenticatorSelection: options.authenticatorSelection as AuthenticatorSelectionCriteria,
+          excludeCredentials: (options.excludeCredentials || []).map((c) => ({ ...c, id: base64ToBuffer(c.id) })),
         },
       })) as PublicKeyCredential | null;
-
       if (!credential) {
         toast.error("Registrácia passkey bola zrušená");
         return false;
       }
-
       const response = credential.response as AuthenticatorAttestationResponse;
       const credentialId = bufferToBase64url(credential.rawId);
       const publicKey = bufferToBase64url(response.getPublicKey?.() || response.attestationObject);
-
-      // Save to server
-      const { error: saveErr } = await supabase.functions.invoke("webauthn-register", {
-        body: {
-          action: "register",
-          credentialId,
-          publicKey,
-          deviceName: deviceName || getDeviceName(),
-        },
-      });
-
-      if (saveErr) {
-        toast.error("Nepodarilo sa uložiť passkey");
-        return false;
-      }
-
+      const register = httpsCallable<{ credentialId: string; publicKey: string; deviceName?: string }, { success?: boolean }>(functions, "webauthnRegister");
+      await register({ credentialId, publicKey, deviceName: deviceName || getDeviceName() });
       toast.success("Passkey bol úspešne zaregistrovaný!");
       return true;
-    } catch (err: any) {
-      if (err.name === "NotAllowedError") {
-        toast.error("Registrácia bola zrušená");
-      } else {
-        toast.error("Chyba pri registrácii passkey");
-      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "NotAllowedError") toast.error("Registrácia bola zrušená");
+      else toast.error("Chyba pri registrácii passkey");
       return false;
     } finally {
       setLoading(false);
@@ -116,91 +91,53 @@ export function useWebAuthn() {
       toast.error("Váš prehliadač nepodporuje passkeys");
       return false;
     }
-
+    const auth = getFirebaseAuth();
+    const functions = getFirebaseFunctions();
+    if (!auth || !functions) {
+      toast.error("Prihlásenie nie je dostupné");
+      return false;
+    }
     setLoading(true);
     try {
-      // Get challenge
-      const { data: options, error: optErr } = await supabase.functions.invoke(
-        "webauthn-authenticate",
-        { body: { action: "challenge", email } }
-      );
-
-      if (optErr || !options) {
+      const getChallenge = httpsCallable<{ email?: string }, { challenge: string; rpId: string; timeout: number; userVerification: string; allowCredentials: { id: string; type: string }[] }>(functions, "webauthnAuthenticateChallenge");
+      const { data: options } = await getChallenge({ email });
+      if (!options) {
         toast.error("Nepodarilo sa získať výzvu");
         return false;
       }
-
-      // Request credential
       const credential = (await navigator.credentials.get({
         publicKey: {
           challenge: base64ToBuffer(options.challenge),
           rpId: options.rpId,
           timeout: options.timeout,
-          userVerification: options.userVerification,
-          allowCredentials: (options.allowCredentials || []).map(
-            (c: { id: string; type: string }) => ({
-              ...c,
-              id: base64ToBuffer(c.id),
-            })
-          ),
+          userVerification: options.userVerification as UserVerificationRequirement,
+          allowCredentials: (options.allowCredentials || []).map((c) => ({ ...c, id: base64ToBuffer(c.id) })),
         },
       })) as PublicKeyCredential | null;
-
       if (!credential) {
         toast.error("Autentifikácia bola zrušená");
         return false;
       }
-
       const credentialId = bufferToBase64url(credential.rawId);
-
-      // Verify on server and get session
-      const { data: verifyResult, error: verifyErr } = await supabase.functions.invoke(
-        "webauthn-authenticate",
-        { body: { action: "verify", credentialId } }
-      );
-
-      if (verifyErr || !verifyResult?.success) {
+      const verify = httpsCallable<{ credentialId: string }, { success: boolean; email?: string; customToken?: string }>(functions, "webauthnAuthenticate");
+      const { data: verifyResult } = await verify({ credentialId });
+      if (!verifyResult?.success || !verifyResult.customToken) {
         toast.error("Passkey nebol rozpoznaný");
         return false;
       }
-
-      // Use the magic link token to sign in
-      if (verifyResult.token) {
-        const { error: signInErr } = await supabase.auth.verifyOtp({
-          email: verifyResult.email,
-          token: verifyResult.token,
-          type: "magiclink",
-        });
-
-        if (signInErr) {
-          toast.error("Prihlásenie zlyhalo: " + signInErr.message);
-          return false;
-        }
-
-        toast.success("Úspešne prihlásený cez passkey!");
-        return true;
-      }
-
-      return false;
-    } catch (err: any) {
-      if (err.name === "NotAllowedError") {
-        toast.error("Autentifikácia bola zrušená");
-      } else {
-        toast.error("Chyba pri prihlásení cez passkey");
-      }
+      await signInWithCustomToken(auth, verifyResult.customToken);
+      toast.success("Úspešne prihlásený cez passkey!");
+      return true;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "NotAllowedError") toast.error("Autentifikácia bola zrušená");
+      else toast.error("Chyba pri prihlásení cez passkey");
       return false;
     } finally {
       setLoading(false);
     }
   }, [isSupported]);
 
-  return {
-    isSupported,
-    loading,
-    checkPlatformAuthenticator,
-    registerPasskey,
-    authenticateWithPasskey,
-  };
+  return { isSupported, loading, checkPlatformAuthenticator, registerPasskey, authenticateWithPasskey };
 }
 
 function getDeviceName(): string {

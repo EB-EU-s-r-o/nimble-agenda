@@ -2,7 +2,7 @@
 # Push migrácií do Supabase cloudu (tabuľky, RPC, seed dáta)
 # ==============================================================
 # Použitie: .\supabase-db-push.ps1
-#           .\supabase-db-push.ps1 -ProjectRef dssdiqojkktzfuwoulbq
+#           .\supabase-db-push.ps1 -ProjectRef hrkwqdvfeudxkqttpgls
 # Predtým: supabase login  (ak ešte nie si prihlásený)
 # ==============================================================
 # Tento skript aplikuje všetky migrácie z supabase/migrations/
@@ -10,7 +10,7 @@
 # ==============================================================
 
 param(
-    [string]$ProjectRef = "eudwjgdijylsgcnncxeg"
+    [string]$ProjectRef = "hrkwqdvfeudxkqttpgls"
 )
 
 $ErrorActionPreference = "Stop"

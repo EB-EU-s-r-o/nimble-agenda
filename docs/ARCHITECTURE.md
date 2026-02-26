@@ -46,6 +46,7 @@
 ### Build & Dev nástroje
 | Nástroj | Verzia | Účel |
 |---------|--------|------|
+| npm / pnpm | — | Package manager (použi v projekte iba jeden; viď [DEVELOPMENT-SETUP.md](DEVELOPMENT-SETUP.md)) |
 | Vitest | 3.2 | Unit testing |
 | @testing-library/react | 16 | Komponentové testy |
 | ESLint | 9.32 | Code quality |

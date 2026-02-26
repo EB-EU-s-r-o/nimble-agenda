@@ -1,8 +1,9 @@
 # ==============================================================
-# PAPI HAIR DESIGN – Booking System | Príprava prostredia
+# Nimble Agenda (PAPI HAIR DESIGN) – Príprava prostredia
 # ==============================================================
-# Spustenie: .\setup.ps1
-# Alebo: npm run setup
+# Spustenie: .\setup.ps1   alebo   npm run setup
+# Požiadavky: Node.js 18+
+# Projekt používa npm (package-lock.json). Viac: docs/DEVELOPMENT-SETUP.md
 # ==============================================================
 
 $ErrorActionPreference = "Stop"
@@ -27,12 +28,12 @@ if ($major -lt 18) {
 }
 Write-Host "[OK] Node.js $nodeVersion" -ForegroundColor Green
 
-# 2. Inštalácia závislostí
-Write-Host "`nInštalujem npm závislosti..." -ForegroundColor Cyan
+# 2. Inštalácia závislostí (npm)
 Set-Location $ProjectRoot
+Write-Host "`nInštalujem závislosti (npm)..." -ForegroundColor Cyan
 npm install
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "CHYBA: npm install zlyhal." -ForegroundColor Red
+    Write-Host "CHYBA: Inštalácia závislostí zlyhala." -ForegroundColor Red
     exit 1
 }
 Write-Host "[OK] Závislosti nainštalované`n" -ForegroundColor Green
@@ -53,4 +54,5 @@ Write-Host "`nProstredie je pripravene.`n" -ForegroundColor Green
 Write-Host "Dalsie kroky:" -ForegroundColor Cyan
 Write-Host "  1. Uprav .env (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY)" -ForegroundColor White
 Write-Host "  2. Spust dev server:  npm run dev" -ForegroundColor White
-Write-Host "  3. Aplikacia:        http://localhost:8080`n" -ForegroundColor White
+Write-Host "  3. Aplikacia:        http://localhost:8080" -ForegroundColor White
+Write-Host "  Doc: docs/DEVELOPMENT-SETUP.md (priprava na vyvoj)`n" -ForegroundColor Gray

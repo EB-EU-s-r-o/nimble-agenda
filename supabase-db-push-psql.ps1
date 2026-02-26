@@ -2,14 +2,14 @@
 # Push migrácií cez psql (ak supabase link zlyhá – nemáš týmový prístup)
 # ==============================================================
 # Použitie: $env:PGPASSWORD = "tvoje_heslo"; .\supabase-db-push-psql.ps1
-#           .\supabase-db-push-psql.ps1 -ProjectRef dssdiqojkktzfuwoulbq
+#           .\supabase-db-push-psql.ps1 -ProjectRef hrkwqdvfeudxkqttpgls
 # Heslo: Supabase Dashboard → Settings → Database → Connection string
 # ==============================================================
 # Vyžaduje: psql (PostgreSQL client), napr. winget install PostgreSQL.PostgreSQL
 # ==============================================================
 
 param(
-    [string]$ProjectRef = "eudwjgdijylsgcnncxeg",
+    [string]$ProjectRef = "hrkwqdvfeudxkqttpgls",
     [string]$DbUrl = $env:SUPABASE_DB_URL
 )
 

@@ -57,6 +57,17 @@ VITE_FIREBASE_APP_ID=...
 
 Ak sú tieto premenné nastavené, aplikácia používa Firebase na prihlásenie (email/heslo, Google). Ak nie sú, používa sa Supabase Auth ako doteraz.
 
+## 2b. Prihlásenie cez Google (bez Cloud Functions)
+
+**Sign in with Google** funguje čisto cez Firebase Authentication – **nepotrebuješ Cloud Functions** ani Blaze plán. Stačí zapnúť Google v konzole a v aplikácii sa zobrazí tlačidlo „Prihlásiť sa cez Google“.
+
+1. **Firebase Console** → tvoj projekt → **Authentication** → **Sign-in method**.
+2. Klikni na **Google** → prepni **Enable** → vyplň **Project support email** (napr. tvoj email) → **Save**.
+3. (Voliteľne) **Authentication** → **Settings** → **Authorized domains** – skontroluj, že je tam `localhost` a tvoja produkčná doména (napr. `papihairdesign.sk` alebo doména Vercel), aby popup/redirect fungoval.
+4. **Web app:** Potrebuješ len **Web client ID** z Google (Firebase ho zobrazí v Sign-in method → Google → Web SDK configuration). Správa o SHA-1 release fingerprint sa týka **Android** apps – pre web ju môžeš ignorovať. Ak chceš použiť konkrétny OAuth klient, pridaj do `.env`: `VITE_GOOGLE_OAUTH_CLIENT_ID=<Web client ID>` (pozri `.env.example`).
+
+Aplikácia používa `signInWithPopup` a `GoogleAuthProvider` z Firebase JS SDK; prihlásenie prebehne v prehliadači, bez volania backendu. Po úspechu používateľ ide na `/admin`. Ak máš zapnuté aj Supabase Third-Party Auth (krok 3), Firebase JWT sa môže posielať do Supabase pre prístup k dátam.
+
 ## 3. Supabase – Third-Party Auth (Firebase)
 
 1. **Dashboard:** Supabase → tvoj projekt → **Authentication** → **Providers** alebo **Third-Party Auth**.

@@ -1,7 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { buildCorsHeaders, getAllowedOrigins, isAllowedOrigin } from "../_shared/cors.ts";
 
-const allowedOrigins = getAllowedOrigins();
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
 interface OfflineAction {
   type: "APPOINTMENT_CREATE" | "APPOINTMENT_UPDATE" | "APPOINTMENT_CANCEL";
@@ -10,17 +13,39 @@ interface OfflineAction {
   created_at: string;
 }
 
-Deno.serve(async (req) => {
-  const origin = req.headers.get("origin");
-  const corsHeaders = buildCorsHeaders(origin, allowedOrigins);
-
-  if (!isAllowedOrigin(origin, allowedOrigins)) {
-    return new Response(JSON.stringify({ error: "CORS origin denied" }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+// Helper function to trigger appointment notifications
+async function triggerNotification(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  appointmentId: string,
+  businessId: string,
+  eventType: "created" | "updated" | "cancelled"
+) {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-appointment-notification`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ 
+        appointment_id: appointmentId, 
+        business_id: businessId, 
+        event_type: eventType 
+      }),
     });
+    
+    if (!response.ok) {
+      console.error(`Notification trigger failed for ${eventType}:`, await response.text());
+    } else {
+      console.log(`Notification triggered for ${eventType}:`, appointmentId);
+    }
+  } catch (e) {
+    console.error(`Notification trigger error for ${eventType}:`, e);
   }
+}
 
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -34,13 +59,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      supabaseUrl,
+      serviceRoleKey
     );
 
     const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      supabaseUrl,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
@@ -64,38 +92,18 @@ Deno.serve(async (req) => {
       .from("memberships")
       .select("business_id, role")
       .eq("profile_id", userId)
-      .in("role", ["owner", "admin", "employee"])
+      .in("role", ["owner", "admin"])
       .limit(1)
       .single();
 
     if (!membership) {
       return new Response(
-        JSON.stringify({ ok: false, error: "Missing business membership" }),
+        JSON.stringify({ ok: false, error: "Not a business admin" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const businessId = membership.business_id;
-    const isEmployee = membership.role === "employee";
-
-    let scopedEmployeeId: string | null = null;
-    if (isEmployee) {
-      const { data: employee } = await supabaseAdmin
-        .from("employees")
-        .select("id, is_active")
-        .eq("business_id", businessId)
-        .eq("profile_id", userId)
-        .maybeSingle();
-
-      if (!employee?.id || employee.is_active === false) {
-        return new Response(
-          JSON.stringify({ ok: false, error: "Employee account is not linked or is deactivated" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      scopedEmployeeId = employee.id;
-    }
-
     const conflicts: Array<{ idempotency_key: string; reason: string; server_suggestion?: any }> = [];
     let applied = 0;
 
@@ -115,18 +123,13 @@ Deno.serve(async (req) => {
       try {
         if (action.type === "APPOINTMENT_CREATE") {
           const p = action.payload;
-          const employeeId = isEmployee ? scopedEmployeeId : p.employee_id;
-
-          if (!employeeId) {
-            throw new Error("Employee is required for appointment create");
-          }
 
           // Check for slot conflict
           const { data: conflicting } = await supabaseAdmin
             .from("appointments")
             .select("id")
             .eq("business_id", businessId)
-            .eq("employee_id", employeeId)
+            .eq("employee_id", p.employee_id || "")
             .neq("status", "cancelled")
             .lt("start_at", p.end_at)
             .gt("end_at", p.start_at)
@@ -161,13 +164,22 @@ Deno.serve(async (req) => {
                 id: p.id,
                 business_id: businessId,
                 customer_id: customer.id,
-                employee_id: employeeId,
+                employee_id: p.employee_id || null,
                 service_id: p.service_id || null,
                 start_at: p.start_at,
                 end_at: p.end_at,
                 status: p.status || "confirmed",
               },
               { onConflict: "id" }
+            );
+
+            // Trigger notification for new appointment
+            await triggerNotification(
+              supabaseUrl,
+              serviceRoleKey,
+              p.id,
+              businessId,
+              "created"
             );
           }
         } else if (action.type === "APPOINTMENT_UPDATE") {
@@ -177,29 +189,35 @@ Deno.serve(async (req) => {
           if (p.end_at) updateData.end_at = p.end_at;
           if (p.status) updateData.status = p.status;
 
-          let updateQuery = supabaseAdmin
+          await supabaseAdmin
             .from("appointments")
             .update(updateData)
             .eq("id", p.id)
             .eq("business_id", businessId);
 
-          if (scopedEmployeeId) {
-            updateQuery = updateQuery.eq("employee_id", scopedEmployeeId);
-          }
-
-          await updateQuery;
+          // Trigger notification for updated appointment
+          await triggerNotification(
+            supabaseUrl,
+            serviceRoleKey,
+            p.id,
+            businessId,
+            "updated"
+          );
         } else if (action.type === "APPOINTMENT_CANCEL") {
-          let cancelQuery = supabaseAdmin
+          await supabaseAdmin
             .from("appointments")
             .update({ status: "cancelled" })
             .eq("id", action.payload.id)
             .eq("business_id", businessId);
 
-          if (scopedEmployeeId) {
-            cancelQuery = cancelQuery.eq("employee_id", scopedEmployeeId);
-          }
-
-          await cancelQuery;
+          // Trigger notification for cancelled appointment
+          await triggerNotification(
+            supabaseUrl,
+            serviceRoleKey,
+            action.payload.id,
+            businessId,
+            "cancelled"
+          );
         }
 
         // Record dedup

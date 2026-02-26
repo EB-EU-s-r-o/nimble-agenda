@@ -1,8 +1,22 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth
+Disallow: /reception
+Disallow: /diagnostics
+Disallow: /offline
+Disallow: /install
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth
+Disallow: /reception
+Disallow: /diagnostics
+Disallow: /offline
+Disallow: /install
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +26,12 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth
+Disallow: /reception
+Disallow: /diagnostics
+Disallow: /offline
+Disallow: /install
+
+Sitemap: https://booking.papihairdesign.sk/sitemap.xml

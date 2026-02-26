@@ -1,19 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const ALLOWED_ORIGINS = (Deno.env.get("PUBLIC_BOOKING_ALLOWED_ORIGINS") ?? "https://booking.papihairdesign.sk,http://localhost:8080,http://localhost:5173")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-const buildCorsHeaders = (origin: string | null) => {
-  const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-idempotency-key",
-    "Vary": "Origin",
-  };
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // --- Input validation helpers ---
@@ -22,7 +13,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
 function validateInput(body: Record<string, unknown>): { error?: string } {
-  const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone, idempotency_key } = body;
+  const { business_id, service_id, employee_id, start_at, customer_name, customer_email, customer_phone } = body;
 
   if (!business_id || !service_id || !employee_id || !start_at || !customer_name || !customer_email) {
     return { error: "Chýbajúce povinné polia" };
@@ -47,12 +38,6 @@ function validateInput(body: Record<string, unknown>): { error?: string } {
   if (customer_phone !== undefined && customer_phone !== null && customer_phone !== "") {
     if (typeof customer_phone !== "string" || customer_phone.length > 30) {
       return { error: "Telefón max 30 znakov" };
-    }
-  }
-
-  if (idempotency_key !== undefined && idempotency_key !== null && idempotency_key !== "") {
-    if (typeof idempotency_key !== "string" || idempotency_key.length < 8 || idempotency_key.length > 120) {
-      return { error: "Neplatný idempotency_key" };
     }
   }
 
@@ -85,16 +70,6 @@ function normalizeEmail(email: string): string {
 }
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
-  const corsHeaders = buildCorsHeaders(origin);
-
-  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-    return new Response(JSON.stringify({ error: "Origin not allowed" }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -136,39 +111,11 @@ serve(async (req) => {
       customer_name,
       customer_email,
       customer_phone,
-      idempotency_key,
     } = body as Record<string, string>;
 
     const sanitizedName = customer_name.trim().slice(0, 200);
     const sanitizedEmail = normalizeEmail(customer_email).slice(0, 255);
     const sanitizedPhone = customer_phone ? String(customer_phone).trim().slice(0, 30) : null;
-
-
-    const idempotencyKeyFromHeader = req.headers.get("x-idempotency-key")?.trim();
-    const rawIdempotencyKey = idempotencyKeyFromHeader || idempotency_key || "";
-    const idempotencyKey = rawIdempotencyKey ? rawIdempotencyKey.slice(0, 120) : "";
-
-    if (idempotencyKey) {
-      const { data: dedupExisting } = await supabase
-        .from("sync_dedup")
-        .select("result")
-        .eq("idempotency_key", idempotencyKey)
-        .maybeSingle();
-
-      const previousAppointmentId = dedupExisting?.result?.appointment_id;
-      if (previousAppointmentId && typeof previousAppointmentId === "string") {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            appointment_id: previousAppointmentId,
-            idempotent_replay: true,
-            customer_email: sanitizedEmail,
-            customer_name: sanitizedName,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
 
     // 0b. Rate limit: max 5 bookings per normalized email per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -214,45 +161,37 @@ serve(async (req) => {
       );
     }
 
-    // 2. Verify employee exists and is bookable for service reservations
+    // 2. Verify employee exists and is active
     const { data: employee, error: empErr } = await supabase
       .from("employees")
       .select("*")
       .eq("id", employee_id)
       .eq("business_id", business_id)
       .eq("is_active", true)
-      .eq("is_bookable", true)
-      .eq("can_receive_service_bookings", true)
       .single();
 
     if (empErr || !employee) {
       return new Response(
-        JSON.stringify({ error: "Vybraný pracovník nie je dostupný pre rezerváciu služby" }),
+        JSON.stringify({ error: "Zamestnanec nebol nájdený" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 2b. Admin bookability is controlled by business setting
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("business_id", business_id)
-      .eq("profile_id", employee.profile_id)
-      .maybeSingle();
+    // 2b. Verify employee is bookable for services (admin/owner check)
+    const { data: isBookable, error: bookableErr } = await supabase.rpc(
+      "is_employee_bookable_for_services",
+      { _employee_id: employee_id, _business_id: business_id }
+    );
 
-    if (membership?.role === "admin") {
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("allow_admin_in_service_selection")
-        .eq("id", business_id)
-        .single();
+    if (bookableErr) {
+      console.error("Bookable check error:", bookableErr);
+    }
 
-      if (!biz?.allow_admin_in_service_selection) {
-        return new Response(
-          JSON.stringify({ error: "Administrátora nie je možné rezervovať pre služby (nastavenie je vypnuté)." }),
-          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    if (!isBookable) {
+      return new Response(
+        JSON.stringify({ error: "Tento pracovník nie je dostupný pre rezerváciu služieb" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // 3. Calculate end time
@@ -330,27 +269,9 @@ serve(async (req) => {
 
     if (apptErr || !appointment) {
       console.error("Appointment creation error:", apptErr);
-      if (apptErr?.code === "23P01") {
-        return new Response(
-          JSON.stringify({ error: "Tento termín je už obsadený" }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       return new Response(
         JSON.stringify({ error: "Chyba pri vytváraní rezervácie" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (idempotencyKey) {
-      await supabase.from("sync_dedup").upsert(
-        {
-          idempotency_key: idempotencyKey,
-          business_id,
-          action_type: "PUBLIC_BOOKING_CREATE",
-          result: { appointment_id: appointment.id },
-        },
-        { onConflict: "idempotency_key" }
       );
     }
 
@@ -376,7 +297,31 @@ serve(async (req) => {
       expires_at: expiresAt.toISOString(),
     });
 
-    // Email notifications are triggered on backend by DB trigger.
+    // 8. Send confirmation email to customer (fire-and-forget)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    fetch(`${supabaseUrl}/functions/v1/send-booking-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ appointment_id: appointment.id, business_id }),
+    }).catch((e) => console.error("Email trigger failed:", e));
+
+    // 9. Send admin/employee notifications (fire-and-forget)
+    fetch(`${supabaseUrl}/functions/v1/send-appointment-notification`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({ 
+        appointment_id: appointment.id, 
+        business_id, 
+        event_type: "created" 
+      }),
+    }).catch((e) => console.error("Notification trigger failed:", e));
 
     return new Response(
       JSON.stringify({

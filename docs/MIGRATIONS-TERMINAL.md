@@ -22,13 +22,13 @@ supabase login
 ```
 
 Skript vykoná:
-1. `supabase link --project-ref eudwjgdijylsgcnncxeg` (alebo iný projekt, ak zadaš `-ProjectRef`)
+1. `supabase link --project-ref hrkwqdvfeudxkqttpgls` (alebo iný projekt, ak zadaš `-ProjectRef`)
 2. `supabase db push` – aplikuje všetky migrácie z `supabase/migrations/` (okrem `run-all.sql`)
 
-### Iný projekt (napr. dssdiqojkktzfuwoulbq)
+### Iný projekt
 
 ```powershell
-.\supabase-db-push.ps1 -ProjectRef dssdiqojkktzfuwoulbq
+.\supabase-db-push.ps1 -ProjectRef <PROJECT_REF>
 ```
 
 ### Ak súbor `supabase` nie je v PATH
@@ -55,11 +55,11 @@ cd C:\Users\42195\Documents\papihd-booking-22-2\doc\nimble-agenda
 # Nastav heslo (neukladaj do skriptu)
 $env:PGPASSWORD = "tvoje_heslo"
 
-# Projekt eudwjgdijylsgcnncxeg (default)
+# Projekt hrkwqdvfeudxkqttpgls (default)
 .\supabase-db-push-psql.ps1
 
 # Alebo iný projekt
-.\supabase-db-push-psql.ps1 -ProjectRef dssdiqojkktzfuwoulbq
+.\supabase-db-push-psql.ps1 -ProjectRef <PROJECT_REF>
 ```
 
 ### 3. Alebo priamo psql
@@ -69,7 +69,7 @@ cd C:\Users\42195\Documents\papihd-booking-22-2\doc\nimble-agenda
 
 # Heslo cez premennú
 $env:PGPASSWORD = "tvoje_heslo"
-psql "postgresql://postgres@db.eudwjgdijylsgcnncxeg.supabase.co:5432/postgres" -f supabase/migrations/run-all.sql
+psql "postgresql://postgres@db.hrkwqdvfeudxkqttpgls.supabase.co:5432/postgres" -f supabase/migrations/run-all.sql
 ```
 
 **Poznámka:** `psql` musí byť nainštalovaný (PostgreSQL client). Na Windows: `winget install PostgreSQL.PostgreSQL`.
@@ -80,8 +80,7 @@ psql "postgresql://postgres@db.eudwjgdijylsgcnncxeg.supabase.co:5432/postgres" -
 
 | Projekt | Kedy použiť |
 |---------|-------------|
-| `eudwjgdijylsgcnncxeg` | Ak Vercel env ukazuje na tento projekt (config.toml) |
-| `dssdiqojkktzfuwoulbq` | Ak Vercel env ukazuje na tento projekt |
+| `hrkwqdvfeudxkqttpgls` | Aktuálny default (config.toml a skripty) |
 
 ---
 
@@ -97,6 +96,6 @@ psql "postgresql://postgres@db.eudwjgdijylsgcnncxeg.supabase.co:5432/postgres" -
 | Cesta | Príkazy |
 |-------|---------|
 | **A – CLI** | `supabase login` → `.\supabase-db-push.ps1` |
-| **A – iný projekt** | `.\supabase-db-push.ps1 -ProjectRef dssdiqojkktzfuwoulbq` |
+| **A – iný projekt** | `.\supabase-db-push.ps1 -ProjectRef <PROJECT_REF>` |
 | **B – psql skript** | `$env:PGPASSWORD = "…"` → `.\supabase-db-push-psql.ps1` |
 | **B – psql priamo** | `psql "postgresql://postgres@db.[PROJECT_REF].supabase.co:5432/postgres" -f supabase/migrations/run-all.sql` |

@@ -253,7 +253,7 @@ export type Database = {
       businesses: {
         Row: {
           address: string | null
-          allow_admin_in_service_selection: boolean
+          allow_admin_as_provider: boolean
           cancellation_hours: number
           created_at: string
           email: string | null
@@ -272,7 +272,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-          allow_admin_in_service_selection?: boolean
+          allow_admin_as_provider?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null
@@ -291,7 +291,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
-          allow_admin_in_service_selection?: boolean
+          allow_admin_as_provider?: boolean
           cancellation_hours?: number
           created_at?: string
           email?: string | null
@@ -710,25 +710,25 @@ export type Database = {
         Args: { _business_id: string; _user_id: string }
         Returns: string
       }
+      get_bookable_employees: {
+        Args: { _business_id: string }
+        Returns: {
+          id: string
+          display_name: string
+          email: string | null
+          phone: string | null
+          photo_url: string | null
+          is_active: boolean
+          profile_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
-      }
-      get_bookable_service_providers: {
-        Args: { p_business_id: string; p_service_id?: string | null }
-        Returns: {
-          display_name: string
-          email: string | null
-          has_schedule: boolean
-          id: string
-          is_active: boolean
-          phone: string | null
-          photo_url: string | null
-          role: Database["public"]["Enums"]["app_role"]
-        }[]
       }
       is_business_admin: {
         Args: { _business_id: string; _user_id: string }
@@ -738,8 +738,8 @@ export type Database = {
         Args: { _business_id: string; _user_id: string }
         Returns: boolean
       }
-      is_business_owner: {
-        Args: { _business_id: string; _user_id: string }
+      is_employee_bookable_for_services: {
+        Args: { _employee_id: string; _business_id: string }
         Returns: boolean
       }
       rpc_get_public_business_info: {
@@ -753,10 +753,6 @@ export type Database = {
       rpc_next_opening: {
         Args: { _business_id: string; _ts?: string }
         Returns: Json
-      }
-      set_allow_admin_in_service_selection: {
-        Args: { p_business_id: string; p_value: boolean }
-        Returns: Database["public"]["Tables"]["businesses"]["Row"]
       }
     }
     Enums: {
