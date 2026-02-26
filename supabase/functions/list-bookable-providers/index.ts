@@ -20,7 +20,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing business_id" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    let query = supabase
+    const query = supabase
       .from("employees")
       .select("id, display_name, email, phone, photo_url, business_id, is_active")
       .eq("business_id", business_id)
