@@ -74,6 +74,13 @@ export default defineConfig(({ mode }) => ({
   ].filter(Boolean),
   optimizeDeps: {
     entries: ["index.html"],
+    include: [
+      "firebase/app",
+      "firebase/auth",
+      "firebase/analytics",
+      "firebase/firestore",
+      "firebase/functions",
+    ],
   },
   resolve: {
     alias: {
