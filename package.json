@@ -25,6 +25,7 @@
     "deploy:firebase:first": "npm run build && firebase deploy --only hosting,firestore",
     "supabase:push": "npx supabase db push",
     "supabase:deploy-functions": "npx supabase functions deploy",
+    "supabase:deploy-functions:quiet": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-supabase-functions.ps1",
     "supabase:setup": "npx supabase db push && npx supabase functions deploy"
   },
   "dependencies": {

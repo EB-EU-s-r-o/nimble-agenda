@@ -41,7 +41,7 @@ const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
-export function getDB() {
+export function getDB(): Promise<IDBPDatabase> {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
@@ -61,4 +61,13 @@ export function getDB() {
     });
   }
   return dbPromise;
+}
+
+/** Returns the DB or null if IndexedDB is unavailable (e.g. private mode). Use when offline features are optional. */
+export async function getDBOrNull(): Promise<IDBPDatabase | null> {
+  try {
+    return await getDB();
+  } catch {
+    return null;
+  }
 }

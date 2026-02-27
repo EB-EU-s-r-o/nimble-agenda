@@ -21,7 +21,12 @@ interface SyncResponse {
 }
 
 export async function runSync() {
-  const db = await getDB();
+  let db;
+  try {
+    db = await getDB();
+  } catch {
+    return;
+  }
   const functions = getFirebaseFunctions();
   if (!functions) return;
 

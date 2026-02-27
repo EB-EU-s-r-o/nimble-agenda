@@ -47,7 +47,7 @@ async function trackConsentEvent(prefs: Omit<CookiePrefs, "timestamp">, action: 
   ];
 
   try {
-    await supabase.functions.invoke("consent-event", {
+    const { error } = await supabase.functions.invoke("consent-event", {
       body: {
         subject_type: "session",
         subject_id: getConsentSubjectId(),
@@ -60,6 +60,14 @@ async function trackConsentEvent(prefs: Omit<CookiePrefs, "timestamp">, action: 
         },
       },
     });
+    // 404 = not deployed; 401 = anon key not allowed / auth misconfigured – optional, no need to warn
+    const isOptional =
+      (error as { status?: number })?.status === 404 ||
+      (error as { status?: number })?.status === 401 ||
+      String((error as Error)?.message ?? "").includes("404");
+    if (error && !isOptional) {
+      console.warn("Consent event tracking failed", error);
+    }
   } catch (error) {
     console.warn("Consent event tracking failed", error);
   }

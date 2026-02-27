@@ -88,6 +88,7 @@ URL: **https://console.firebase.google.com/** → projekt **phd-booking**
 
 | Čo | Dokument |
 |----|----------|
+| **Čo funguje / nefunguje (Spark, Supabase, Edge Functions)** | docs/STATUS-FUNKCNOST.md |
 | **Nastavenie všetko cez CLI (plán)** | docs/SETUP-CLI-PLAN.md |
 | Spark vs Blaze, čo funguje bez platenia | docs/FIREBASE-SPARK-AUDIT.md |
 | Náhrada Firebase Functions (Supabase) | docs/SUPABASE-AS-BACKEND.md |

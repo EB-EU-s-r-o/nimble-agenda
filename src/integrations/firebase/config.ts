@@ -1,6 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getAnalytics, type Analytics } from "firebase/analytics";
+import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 
@@ -59,11 +59,13 @@ export function getFirebaseApp(): FirebaseApp | null {
   return getApp();
 }
 
-/** Initialize Firebase Analytics (browser only). Call once on app load. */
-export function initFirebaseAnalytics(): Analytics | null {
+/** Initialize Firebase Analytics (browser only). Call once on app load. Skips init when IndexedDB is unavailable (e.g. private mode). */
+export async function initFirebaseAnalytics(): Promise<Analytics | null> {
   if (typeof globalThis.window === "undefined") return null;
   const firebaseApp = getApp();
   if (!firebaseApp) return null;
+  const supported = await isSupported();
+  if (!supported) return null;
   if (!analytics) analytics = getAnalytics(firebaseApp);
   return analytics;
 }

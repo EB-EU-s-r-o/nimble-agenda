@@ -18,12 +18,17 @@ export function OfflineBanner({ onConflictsClick }: OfflineBannerProps = {}) {
   useEffect(() => {
     const update = async () => {
       setOnline(navigator.onLine);
-      const db = await getDB();
-      const allQueue = await db.getAllFromIndex("queue", "status");
-      const p = allQueue.filter((i: any) => ["pending", "failed", "processing"].includes(i.status)).length;
-      const c = allQueue.filter((i: any) => i.status === "conflict").length;
-      setPending(p);
-      setConflicts(c);
+      try {
+        const db = await getDB();
+        const allQueue = await db.getAllFromIndex("queue", "status");
+        const p = allQueue.filter((i: any) => ["pending", "failed", "processing"].includes(i.status)).length;
+        const c = allQueue.filter((i: any) => i.status === "conflict").length;
+        setPending(p);
+        setConflicts(c);
+      } catch {
+        setPending(0);
+        setConflicts(0);
+      }
     };
 
     update();

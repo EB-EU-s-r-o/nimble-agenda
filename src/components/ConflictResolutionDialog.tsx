@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDB, type QueueItem, type OfflineAppointment } from "@/lib/offline/db";
+import { getDBOrNull, type QueueItem, type OfflineAppointment } from "@/lib/offline/db";
 import { updateAppointmentOffline, enqueueAction } from "@/lib/offline/reception";
 import {
   Dialog,
@@ -33,7 +33,11 @@ export function ConflictResolutionDialog({
   const [loading, setLoading] = useState(false);
 
   const loadConflicts = async () => {
-    const db = await getDB();
+    const db = await getDBOrNull();
+    if (!db) {
+      setConflicts([]);
+      return;
+    }
     const allQueue = await db.getAllFromIndex("queue", "status");
     const items = allQueue.filter((i: any) => i.status === "conflict");
     const result: ConflictItem[] = [];
@@ -86,8 +90,8 @@ export function ConflictResolutionDialog({
 
   const handleDismissConflict = async (conflict: ConflictItem) => {
     if (conflict.queueItem.id) {
-      const db = await getDB();
-      await db.delete("queue", conflict.queueItem.id);
+      const db = await getDBOrNull();
+      if (db) await db.delete("queue", conflict.queueItem.id);
     }
     toast.info("Konflikt ignorovaný");
     await loadConflicts();
@@ -96,10 +100,12 @@ export function ConflictResolutionDialog({
 
   const handleRetry = async (conflict: ConflictItem) => {
     if (conflict.queueItem.id) {
-      const db = await getDB();
-      const item = await db.get("queue", conflict.queueItem.id);
-      if (item) {
-        await db.put("queue", { ...item, status: "pending", last_error: undefined, conflict_suggestion: undefined });
+      const db = await getDBOrNull();
+      if (db) {
+        const item = await db.get("queue", conflict.queueItem.id);
+        if (item) {
+          await db.put("queue", { ...item, status: "pending", last_error: undefined, conflict_suggestion: undefined });
+        }
       }
     }
     toast.info("Zaradené na opätovný sync");

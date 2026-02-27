@@ -133,7 +133,7 @@ export default function BookingPage() {
   const [availableSlots, setAvailableSlots] = useState<Date[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  // Load initial data from Firestore
+  // Load initial data from Firestore (guarded so permission errors don't leave uncaught promise rejections)
   useEffect(() => {
     const load = async () => {
       const firestore = getFirebaseFirestore();
@@ -141,55 +141,71 @@ export default function BookingPage() {
         setInitialLoading(false);
         return;
       }
-      const [bizSnap, svcSnap, empSnap, bhSnap, bdoSnap] = await Promise.all([
-        getDoc(doc(firestore, "businesses", DEMO_BUSINESS_ID)),
-        getDocs(query(collection(firestore, "services"), where("business_id", "==", DEMO_BUSINESS_ID), where("is_active", "==", true), orderBy("name_sk"))),
-        getDocs(query(collection(firestore, "employees"), where("business_id", "==", DEMO_BUSINESS_ID), where("is_active", "==", true), orderBy("display_name"))),
-        getDocs(query(collection(firestore, "business_hours"), where("business_id", "==", DEMO_BUSINESS_ID), orderBy("sort_order"))),
-        getDocs(query(collection(firestore, "business_date_overrides"), where("business_id", "==", DEMO_BUSINESS_ID), where("override_date", ">=", new Date().toISOString().slice(0, 10)))),
-      ]);
-      if (bizSnap.exists()) {
-        const d = bizSnap.data();
-        setBusiness({ id: DEMO_BUSINESS_ID, name: d?.name ?? "", allow_admin_as_provider: d?.allow_admin_as_provider, max_days_ahead: d?.max_days_ahead, lead_time_minutes: d?.lead_time_minutes, opening_hours: d?.opening_hours });
-      }
-      setServices(svcSnap.docs.map((e) => ({ id: e.id, ...e.data() })) as unknown as ServiceRow[]);
-      setEmployees(empSnap.docs.map((e) => ({ id: e.id, ...e.data() })) as unknown as EmployeeRow[]);
-      setBusinessHourEntries(bhSnap.docs.map((d) => {
-        const h = d.data();
-        return { day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time };
-      }));
-      setDateOverrides(bdoSnap.docs.map((d) => {
-        const o = d.data();
-        return { override_date: o.override_date, mode: o.mode, start_time: o.start_time ?? null, end_time: o.end_time ?? null };
-      }));
+      try {
+        const [bizSnap, svcSnap, empSnap, bhSnap, bdoSnap] = await Promise.all([
+          getDoc(doc(firestore, "businesses", DEMO_BUSINESS_ID)),
+          getDocs(query(collection(firestore, "services"), where("business_id", "==", DEMO_BUSINESS_ID), where("is_active", "==", true), orderBy("name_sk"))),
+          getDocs(query(collection(firestore, "employees"), where("business_id", "==", DEMO_BUSINESS_ID), where("is_active", "==", true), orderBy("display_name"))),
+          getDocs(query(collection(firestore, "business_hours"), where("business_id", "==", DEMO_BUSINESS_ID), orderBy("sort_order"))),
+          getDocs(query(collection(firestore, "business_date_overrides"), where("business_id", "==", DEMO_BUSINESS_ID), where("override_date", ">=", new Date().toISOString().slice(0, 10)))),
+        ]);
+        if (bizSnap.exists()) {
+          const d = bizSnap.data();
+          setBusiness({ id: DEMO_BUSINESS_ID, name: d?.name ?? "", allow_admin_as_provider: d?.allow_admin_as_provider, max_days_ahead: d?.max_days_ahead, lead_time_minutes: d?.lead_time_minutes, opening_hours: d?.opening_hours });
+        }
+        setServices(svcSnap.docs.map((e) => ({ id: e.id, ...e.data() })) as unknown as ServiceRow[]);
+        setEmployees(empSnap.docs.map((e) => ({ id: e.id, ...e.data() })) as unknown as EmployeeRow[]);
+        setBusinessHourEntries(bhSnap.docs.map((d) => {
+          const h = d.data();
+          return { day_of_week: h.day_of_week, mode: h.mode, start_time: h.start_time, end_time: h.end_time };
+        }));
+        setDateOverrides(bdoSnap.docs.map((d) => {
+          const o = d.data();
+          return { override_date: o.override_date, mode: o.mode, start_time: o.start_time ?? null, end_time: o.end_time ?? null };
+        }));
 
-      const empIds = empSnap.docs.map((e) => e.id);
-      if (empIds.length) {
-        const schedSnap = await getDocs(query(collection(firestore, "schedules"), where("employee_id", "in", empIds.slice(0, 10))));
-        const map: Record<string, EmployeeSchedule[]> = {};
-        schedSnap.docs.forEach((s) => {
-          const data = s.data();
-          const eid = data.employee_id;
-          if (!map[eid]) map[eid] = [];
-          map[eid].push({ day_of_week: data.day_of_week, start_time: data.start_time, end_time: data.end_time });
+        const empIds = empSnap.docs.map((e) => e.id);
+        if (empIds.length) {
+          const schedSnap = await getDocs(query(collection(firestore, "schedules"), where("employee_id", "in", empIds.slice(0, 10))));
+          const map: Record<string, EmployeeSchedule[]> = {};
+          schedSnap.docs.forEach((s) => {
+            const data = s.data();
+            const eid = data.employee_id;
+            if (!map[eid]) map[eid] = [];
+            map[eid].push({ day_of_week: data.day_of_week, start_time: data.start_time, end_time: data.end_time });
+          });
+          setSchedules(map);
+        }
+
+        const esSnap = await getDocs(query(collection(firestore, "employee_services"), where("business_id", "==", DEMO_BUSINESS_ID)));
+        const eMap: Record<string, string[]> = {};
+        esSnap.docs.forEach((d) => {
+          const item = d.data();
+          const eid = item.employee_id;
+          if (!eMap[eid]) eMap[eid] = [];
+          eMap[eid].push(item.service_id);
         });
-        setSchedules(map);
+        setEmployeeServiceMap(eMap);
+
+        try {
+          const memSnap = await getDocs(query(collection(firestore, "memberships"), where("business_id", "==", DEMO_BUSINESS_ID)));
+          setMemberships(memSnap.docs.map((d) => ({ profile_id: d.data().profile_id, role: d.data().role })) as MembershipRow[]);
+        } catch (membershipsError_) {
+          console.warn("BookingPage: memberships read skipped (e.g. unauthenticated)", membershipsError_);
+          setMemberships([]);
+        }
+      } catch (error_) {
+        console.warn("BookingPage: failed to load Firestore data", error_);
+        setServices([]);
+        setEmployees([]);
+        setBusinessHourEntries([]);
+        setDateOverrides([]);
+        setSchedules({});
+        setEmployeeServiceMap({});
+        setMemberships([]);
+      } finally {
+        setInitialLoading(false);
       }
-
-      const esSnap = await getDocs(query(collection(firestore, "employee_services"), where("business_id", "==", DEMO_BUSINESS_ID)));
-      const eMap: Record<string, string[]> = {};
-      esSnap.docs.forEach((d) => {
-        const item = d.data();
-        const eid = item.employee_id;
-        if (!eMap[eid]) eMap[eid] = [];
-        eMap[eid].push(item.service_id);
-      });
-      setEmployeeServiceMap(eMap);
-
-      const memSnap = await getDocs(query(collection(firestore, "memberships"), where("business_id", "==", DEMO_BUSINESS_ID)));
-      setMemberships(memSnap.docs.map((d) => ({ profile_id: d.data().profile_id, role: d.data().role })) as MembershipRow[]);
-
-      setInitialLoading(false);
     };
     load();
   }, []);

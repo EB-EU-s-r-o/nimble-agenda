@@ -95,6 +95,14 @@
         { "fieldPath": "business_id", "mode": "ASCENDING" },
         { "fieldPath": "idempotency_key", "mode": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "business_quick_links",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "business_id", "mode": "ASCENDING" },
+        { "fieldPath": "sort_order", "mode": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
